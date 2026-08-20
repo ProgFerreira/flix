@@ -28,6 +28,21 @@ model User {
   subscription      Subscription?
   favorites         Favorite[]
   watchProgress     WatchProgress[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// Token de recuperação de senha. Guarda só o hash (SHA-256) do token que vai
+// por e-mail — se o banco vazar, ninguém consegue usar as linhas daqui pra
+// resetar senha de ninguém, porque o token cru nunca fica gravado.
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Favorito por usuário — tabela própria porque Video.favorite é por linha do

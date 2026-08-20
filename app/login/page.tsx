@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Logo } from "@/app/components/Logo"
 
 const iStyle: React.CSSProperties = {
@@ -101,7 +102,14 @@ export default function LoginPage() {
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" style={iStyle} />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Senha</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Senha</label>
+                {mode === "login" && (
+                  <Link href="/esqueci-senha" style={{ fontSize: 12, color: "#1E40AF", textDecoration: "none" }}>
+                    Esqueci minha senha
+                  </Link>
+                )}
+              </div>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mínimo 6 caracteres" style={iStyle} />
             </div>
 

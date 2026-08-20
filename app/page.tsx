@@ -103,7 +103,10 @@ export default function Home() {
   const { play: playVideo } = usePlayer()
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/login")
+    // "/" é a biblioteca pessoal (exige conta) — quem não está logado vai pro
+    // catálogo público, não direto pro login, porque agora dá pra assistir o
+    // conteúdo gratuito sem conta.
+    if (status === "unauthenticated") router.push("/catalogo")
   }, [status, router])
   const [videos, setVideos] = useState<Video[]>([])
   const [sharedVideos, setSharedVideos] = useState<Video[]>([])
