@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
+import Image from "next/image"
 import { AppHeader } from "@/app/components/AppHeader"
 import { Logo } from "@/app/components/Logo"
 import { usePlayer } from "@/app/contexts/PlayerContext"
-import { Lock, Play, Film, Crown } from "lucide-react"
+import { Lock, Play, Film, Crown, Search, X } from "lucide-react"
 
 type Category = { id: number; name: string; color: string }
 type CatalogVideo = {
@@ -46,6 +47,7 @@ export default function CatalogoPage() {
 
   const [videos, setVideos] = useState<CatalogVideo[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState("")
 
   const fetchCatalog = useCallback(async () => {
     setLoading(true)
@@ -68,6 +70,11 @@ export default function CatalogoPage() {
     play({ id: v.id, title: v.title, channelName: v.channelName, source: "upload" })
   }
 
+  const filtered = videos.filter((v) =>
+    v.title.toLowerCase().includes(search.toLowerCase()) ||
+    (v.channelName ?? "").toLowerCase().includes(search.toLowerCase())
+  )
+
   if (status === "loading" || loading) {
     return <div style={{ minHeight: "100vh", background: "#F1F5F9" }}>{isLoggedIn ? <AppHeader /> : <VisitorHeader />}<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#64748B" }}>Carregando...</div></div>
   }
@@ -76,11 +83,25 @@ export default function CatalogoPage() {
     <div style={{ minHeight: "100vh", background: "#F1F5F9" }}>
       {isLoggedIn ? <AppHeader /> : <VisitorHeader />}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 20px" }}>
-        <div style={{ marginBottom: 22 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>Catálogo</h1>
-          <p style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>
-            {isLoggedIn ? "Vídeos autorais disponíveis conforme o seu plano" : "Assista de graça, sem conta, ou entre pra ver o catálogo completo"}
-          </p>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginBottom: 22, flexWrap: "wrap" }}>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>Catálogo</h1>
+            <p style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>
+              {isLoggedIn ? "Vídeos autorais disponíveis conforme o seu plano" : "Assista de graça, sem conta, ou entre pra ver o catálogo completo"}
+            </p>
+          </div>
+          {videos.length > 0 && (
+            <div style={{ position: "relative", flex: "0 1 280px", minWidth: 200 }}>
+              <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94A3B8" }} />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por título ou canal..."
+                style={{ width: "100%", padding: "9px 30px 9px 32px", background: "#fff", border: "1px solid #CBD5E1", borderRadius: 7, color: "#0F172A", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+              {search && (
+                <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", display: "flex" }}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {!isLoggedIn && (
@@ -92,17 +113,19 @@ export default function CatalogoPage() {
           </div>
         )}
 
-        {videos.length === 0 ? (
+        {filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "#94A3B8" }}>
             <Film size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
-            <p style={{ fontSize: 15, fontWeight: 600, color: "#64748B" }}>Nenhum vídeo publicado ainda</p>
+            <p style={{ fontSize: 15, fontWeight: 600, color: "#64748B" }}>
+              {videos.length === 0 ? "Nenhum vídeo publicado ainda" : "Nenhum vídeo encontrado"}
+            </p>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-            {videos.map((v) => (
+            {filtered.map((v) => (
               <div key={v.id} className="animate-fade-up" style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E2E8F0", background: "#fff", opacity: v.locked ? 0.85 : 1 }}>
                 <div onClick={() => watch(v)} style={{ position: "relative", paddingBottom: "56.25%", background: "#0F172A", cursor: v.locked ? "not-allowed" : "pointer" }}>
-                  <img src={v.thumbnail} alt={v.title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: v.locked ? "grayscale(0.5) brightness(0.5)" : "none" }} />
+                  <Image src={v.thumbnail} alt={v.title} fill sizes="(max-width: 640px) 50vw, 220px" style={{ objectFit: "cover", filter: v.locked ? "grayscale(0.5) brightness(0.5)" : "none" }} />
                   <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: v.locked ? "rgba(0,0,0,0.25)" : "transparent" }}>
                     {v.locked ? (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: "#fff" }}>

@@ -18,6 +18,7 @@ import { usePlayer } from "@/app/contexts/PlayerContext"
 import { Logo } from "@/app/components/Logo"
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
 import Link from "next/link"
+import Image from "next/image"
 
 // ── Types ──────────────────────────────────────────────
 type Category = { id: number; name: string; color: string; _count?: { videoCategories: number } }
@@ -627,7 +628,11 @@ export default function Home() {
               <Field label="URL do YouTube" error={videoForm.formState.errors.url?.message}>
                 <input {...videoForm.register("url", { onChange: e => onVideoUrlChange(e.target.value) })} placeholder="https://youtube.com/watch?v=..." style={iStyle} />
               </Field>
-              {urlPreview && <img src={urlPreview} alt="" style={{ borderRadius: 6, width: "100%", height: 110, objectFit: "cover" }} />}
+              {urlPreview && (
+                <div style={{ position: "relative", width: "100%", height: 110, borderRadius: 6, overflow: "hidden" }}>
+                  <Image src={urlPreview} alt="" fill sizes="440px" style={{ objectFit: "cover" }} />
+                </div>
+              )}
               <Field label="Título" error={videoForm.formState.errors.title?.message}>
                 <input {...videoForm.register("title")} placeholder="Nome do vídeo" style={iStyle} />
               </Field>
@@ -958,7 +963,7 @@ function VideoCard({ video, index, dragHandle, onWatch, onDelete, onEdit, onTogg
 
         {/* Thumbnail */}
         <div style={{ position: "relative", paddingBottom: "56.25%", cursor: "pointer", background: "#E2E8F0" }} onClick={onWatch}>
-          <img src={video.thumbnail} alt={video.title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <Image src={video.thumbnail} alt={video.title} fill sizes="(max-width: 640px) 50vw, 220px" style={{ objectFit: "cover" }} />
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", opacity: hover ? 1 : 0, transition: "opacity 0.2s" }}>
             <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#F97316", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Play size={18} fill="#fff" color="#fff" style={{ marginLeft: 3 }} />

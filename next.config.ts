@@ -36,6 +36,16 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "img.youtube.com" }],
+    // O placeholder de vídeo autoral (public/video-placeholder.svg) é SVG —
+    // o next/image recusa otimizar SVG por padrão. É um asset nosso, não
+    // upload de usuário, então liberar aqui é seguro; o CSP isolado abaixo
+    // é a mitigação recomendada pelo próprio Next.js pra essa liberação.
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "attachment",
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }]
   },

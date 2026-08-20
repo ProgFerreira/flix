@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { CheckCircle2, Play, Clock } from "lucide-react"
 import { AppHeader } from "@/app/components/AppHeader"
 import { usePlayer } from "@/app/contexts/PlayerContext"
@@ -117,7 +118,7 @@ function VideoRow({ video, onWatch }: { video: Video; onWatch: () => void }) {
 
       {/* Thumbnail */}
       <div style={{ position: "relative", flexShrink: 0 }}>
-        <img src={video.thumbnail} alt={video.title} style={{ width: 96, height: 54, borderRadius: 6, objectFit: "cover", display: "block" }} />
+        <Image src={video.thumbnail} alt={video.title} width={96} height={54} style={{ borderRadius: 6, objectFit: "cover", display: "block" }} />
         <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", opacity: hover ? 1 : 0, transition: "opacity 0.15s" }}>
           <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e85d04", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Play size={12} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />

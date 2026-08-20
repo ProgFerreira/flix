@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { AppHeader } from "@/app/components/AppHeader"
 import { Upload, X, Trash2, Lock, Unlock, Film, RefreshCw, Loader2 } from "lucide-react"
 
@@ -169,7 +170,7 @@ export default function AdminVideosPage() {
             {videos.map((v) => (
               <div key={v.id} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E2E8F0", background: "#fff" }}>
                 <div style={{ position: "relative", paddingBottom: "56.25%", background: "#0F172A" }}>
-                  <img src={v.thumbnail} alt={v.title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                  <Image src={v.thumbnail} alt={v.title} fill sizes="(max-width: 640px) 50vw, 240px" style={{ objectFit: "cover" }} />
                   <span style={{ position: "absolute", top: 6, left: 6, display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: v.published ? "rgba(22,163,74,0.9)" : "rgba(100,116,139,0.9)", color: "#fff" }}>
                     {v.published ? <Unlock size={9} /> : <Lock size={9} />} {v.published ? "Publicado" : "Rascunho"}
                   </span>

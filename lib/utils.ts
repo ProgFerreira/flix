@@ -17,5 +17,8 @@ export function extractYouTubeId(url: string): string | null {
 }
 
 export function getYouTubeThumbnail(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+  // hqdefault sempre existe pra qualquer vídeo público; maxresdefault só
+  // existe pra vídeos enviados em resolução alta o bastante — pra vídeos
+  // mais antigos/menores o YouTube retorna 404 e a miniatura quebra.
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
 }
