@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { AppHeader } from "@/app/components/AppHeader"
+import { Logo } from "@/app/components/Logo"
 import { usePlayer } from "@/app/contexts/PlayerContext"
 import { Lock, Play, Film, Crown } from "lucide-react"
 
@@ -19,10 +19,30 @@ type CatalogVideo = {
 const PLAN_LABEL: Record<string, string> = { free: "Free", premium: "Premium", pro: "Pro" }
 const PLAN_COLOR: Record<string, string> = { free: "#64748B", premium: "#7C3AED", pro: "#B45309" }
 
+function VisitorHeader() {
+  return (
+    <header style={{ background: "#fff", borderBottom: "1px solid #E2E8F0", position: "sticky", top: 0, zIndex: 100 }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", height: 58, display: "flex", alignItems: "center", gap: 16 }}>
+        <Link href="/catalogo" style={{ textDecoration: "none", flexShrink: 0 }}>
+          <Logo size={22} />
+        </Link>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <Link href="/login" style={{ padding: "6px 14px", borderRadius: 6, background: "none", border: "1px solid #E2E8F0", color: "#475569", textDecoration: "none", fontSize: 13, fontWeight: 500 }}>
+            Entrar
+          </Link>
+          <Link href="/login" style={{ padding: "6px 14px", borderRadius: 6, background: "#F97316", color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
+            Criar conta
+          </Link>
+        </div>
+      </div>
+    </header>
+  )
+}
+
 export default function CatalogoPage() {
   const { status } = useSession()
-  const router = useRouter()
   const { play } = usePlayer()
+  const isLoggedIn = status === "authenticated"
 
   const [videos, setVideos] = useState<CatalogVideo[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,29 +55,42 @@ export default function CatalogoPage() {
     setLoading(false)
   }, [])
 
+  // Catálogo é público — vídeo gratuito assiste sem conta. Só espera a
+  // sessão resolver (pra saber se mostra o header de visitante ou o normal)
+  // antes de buscar, porque o acesso aos vídeos pagos depende de quem está logado.
   useEffect(() => {
     if (status === "loading") return
-    if (status === "unauthenticated") { router.push("/login"); return }
     fetchCatalog()
-  }, [status, fetchCatalog, router])
+  }, [status, fetchCatalog])
 
   const watch = (v: CatalogVideo) => {
     if (v.locked) return
     play({ id: v.id, title: v.title, channelName: v.channelName, source: "upload" })
   }
 
-  if (status === "loading" || (status === "authenticated" && loading)) {
-    return <div style={{ minHeight: "100vh", background: "#F1F5F9" }}><AppHeader /><div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#64748B" }}>Carregando...</div></div>
+  if (status === "loading" || loading) {
+    return <div style={{ minHeight: "100vh", background: "#F1F5F9" }}>{isLoggedIn ? <AppHeader /> : <VisitorHeader />}<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#64748B" }}>Carregando...</div></div>
   }
 
   return (
     <div style={{ minHeight: "100vh", background: "#F1F5F9" }}>
-      <AppHeader />
+      {isLoggedIn ? <AppHeader /> : <VisitorHeader />}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 20px" }}>
         <div style={{ marginBottom: 22 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>Catálogo</h1>
-          <p style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>Vídeos autorais disponíveis conforme a sua assinatura</p>
+          <p style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>
+            {isLoggedIn ? "Vídeos autorais disponíveis conforme o seu plano" : "Assista de graça, sem conta, ou entre pra ver o catálogo completo"}
+          </p>
         </div>
+
+        {!isLoggedIn && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10, padding: "12px 16px", marginBottom: 20 }}>
+            <Crown size={16} color="#1E40AF" />
+            <p style={{ fontSize: 13, color: "#1E40AF" }}>
+              Você está vendo como visitante. <Link href="/login" style={{ color: "#1E40AF", fontWeight: 600 }}>Entre ou crie uma conta</Link> pra desbloquear os vídeos Premium e Pro.
+            </p>
+          </div>
+        )}
 
         {videos.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "#94A3B8" }}>
@@ -97,8 +130,8 @@ export default function CatalogoPage() {
                     ))}
                   </div>
                   {v.locked && (
-                    <Link href="/plano" style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "6px 0", borderRadius: 6, background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", textDecoration: "none" }}>
-                      <Crown size={12} /> Assinar {PLAN_LABEL[v.requiredPlan]}
+                    <Link href={isLoggedIn ? "/plano" : "/login"} style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "6px 0", borderRadius: 6, background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", textDecoration: "none" }}>
+                      <Crown size={12} /> {isLoggedIn ? `Assinar ${PLAN_LABEL[v.requiredPlan]}` : "Entrar pra assistir"}
                     </Link>
                   )}
                 </div>

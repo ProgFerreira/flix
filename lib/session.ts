@@ -25,6 +25,20 @@ export async function requireUserId(): Promise<{ userId: number } | NextResponse
   return { userId }
 }
 
+/**
+ * Versão sem bloqueio do requireUserId — pro catálogo público, onde visitante
+ * sem conta pode ver e assistir o que é gratuito. Retorna null em vez de 401
+ * quando não há sessão válida, em vez de recusar a requisição.
+ */
+export async function optionalUserId(): Promise<number | null> {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return null
+  const userId = Number(session.user.id)
+  const user = await currentDbUser(userId)
+  if (!user || user.status === "blocked") return null
+  return userId
+}
+
 export async function requireAdmin(): Promise<{ userId: number } | NextResponse> {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {

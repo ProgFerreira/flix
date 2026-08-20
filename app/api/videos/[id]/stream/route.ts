@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import fs from "fs"
 import { Readable } from "stream"
 import { prisma } from "@/lib/prisma"
-import { requireUserId, syncSubscriptionStatus, canAccessCatalogVideo } from "@/lib/session"
+import { optionalUserId, syncSubscriptionStatus, canAccessCatalogVideo } from "@/lib/session"
 import { resolveStoredFilePath, parseRangeHeader } from "@/lib/video-storage"
 
 export const runtime = "nodejs"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireUserId()
-  if (auth instanceof NextResponse) return auth
-  const { userId } = auth
+  const userId = await optionalUserId()
   const { id } = await params
 
   const video = await prisma.video.findUnique({
@@ -24,17 +22,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Vídeo ainda em processamento" }, { status: 409 })
   }
 
-  const isOwner = video.userId === userId
+  const isOwner = userId !== null && video.userId === userId
   let allowed = isOwner
   if (!allowed) {
-    await syncSubscriptionStatus(userId)
-    const requester = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, role: true } })
-    allowed = !!requester && canAccessCatalogVideo({
+    // visitante sem conta (userId null) é tratado como "free": só destrava
+    // o que é gratuito, sem consultar o banco por um usuário que não existe
+    let requesterPlan = "free"
+    let isAdmin = false
+    if (userId !== null) {
+      await syncSubscriptionStatus(userId)
+      const requester = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, role: true } })
+      if (!requester) {
+        return NextResponse.json({ error: "Sua assinatura não dá acesso a este vídeo" }, { status: 403 })
+      }
+      requesterPlan = requester.plan
+      isAdmin = requester.role === "admin"
+    }
+    allowed = canAccessCatalogVideo({
       isOwner: false,
-      isAdmin: requester.role === "admin",
+      isAdmin,
       published: video.published,
       requiredPlan: video.requiredPlan,
-      requesterPlan: requester.plan,
+      requesterPlan,
     })
   }
   if (!allowed) {
