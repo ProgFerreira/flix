@@ -1,13 +1,28 @@
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+
+// A sessão é JWT (fica no navegador por até 30 dias) e `role`/`status` só são
+// gravados nela no momento do login. Sem essa checagem no banco, bloquear ou
+// excluir alguém não corta o acesso na hora — a pessoa segue autenticando com
+// os dados antigos até o token expirar. Cada chamada aqui é um SELECT pela
+// chave primária, barato, e é o portão real de toda rota de API.
+async function currentDbUser(userId: number) {
+  return prisma.user.findUnique({ where: { id: userId }, select: { status: true, role: true } })
+}
 
 export async function requireUserId(): Promise<{ userId: number } | NextResponse> {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
   }
-  return { userId: Number(session.user.id) }
+  const userId = Number(session.user.id)
+  const user = await currentDbUser(userId)
+  if (!user || user.status === "blocked") {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+  }
+  return { userId }
 }
 
 export async function requireAdmin(): Promise<{ userId: number } | NextResponse> {
@@ -15,10 +30,15 @@ export async function requireAdmin(): Promise<{ userId: number } | NextResponse>
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
   }
-  if ((session.user as { role?: string }).role !== "admin") {
+  const userId = Number(session.user.id)
+  const user = await currentDbUser(userId)
+  if (!user || user.status === "blocked") {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+  }
+  if (user.role !== "admin") {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 })
   }
-  return { userId: Number(session.user.id) }
+  return { userId }
 }
 
 export const PLAN_LIMITS: Record<string, number> = {

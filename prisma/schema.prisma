@@ -26,6 +26,39 @@ model User {
   sharesReceived    VideoShare[]       @relation("ShareTo")
   payments          PlanPayment[]
   subscription      Subscription?
+  favorites         Favorite[]
+  watchProgress     WatchProgress[]
+}
+
+// Favorito por usuário — tabela própria porque Video.favorite é por linha do
+// vídeo (certo pra biblioteca pessoal, onde cada vídeo pertence a um usuário
+// só). Um vídeo de catálogo é uma linha vista por muitos assinantes; se
+// "favoritar" usasse Video.favorite, o favorito de um vazaria pra todo mundo.
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  videoId   Int
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+// Posição de reprodução por usuário — mesma razão do Favorite acima: precisa
+// ser por (usuário, vídeo), não um campo único no Video.
+model WatchProgress {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  videoId   Int
+  seconds   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
 }
 
 model Subscription {
@@ -81,9 +114,9 @@ model Video {
   thumbnail       String
   duration        String?
   channelName     String?
-  watched         Boolean         @default(false)
+  watched         Boolean         @default(false) // biblioteca pessoal (source="youtube") só — catálogo usa WatchProgress
   watchedAt       DateTime?
-  favorite        Boolean         @default(false)
+  favorite        Boolean         @default(false) // biblioteca pessoal (source="youtube") só — catálogo usa Favorite
   notes           String?         @db.Text
   sortOrder       Int             @default(0)
   createdAt       DateTime        @default(now())
@@ -101,6 +134,8 @@ model Video {
   videoCategories VideoCategory[]
   shares          VideoShare[]
   collectionVideos CollectionVideo[]
+  favoritedBy     Favorite[]
+  watchProgress   WatchProgress[]
 }
 
 model VideoCategory {

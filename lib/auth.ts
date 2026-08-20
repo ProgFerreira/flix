@@ -48,7 +48,11 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
-  session: { strategy: "jwt" },
+  // maxAge curto porque o middleware (edge) só consegue checar o JWT, não o
+  // banco — isso limita a janela em que uma conta bloqueada/rebaixada ainda
+  // abre as telas de admin antes do redirect. As rotas de API já revalidam
+  // contra o banco a cada chamada via requireUserId/requireAdmin.
+  session: { strategy: "jwt", maxAge: 24 * 60 * 60 },
   pages: { signIn: "/login" },
   secret: process.env.NEXTAUTH_SECRET,
 }
