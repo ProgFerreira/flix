@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { handlePrismaError } from "@/lib/api-error"
 
 const schema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
@@ -35,9 +35,8 @@ export async function POST(req: NextRequest) {
     const category = await prisma.category.create({ data: { ...parsed.data, userId } })
     return NextResponse.json(category)
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return NextResponse.json({ error: "Você já tem uma categoria com esse nome" }, { status: 409 })
-    }
+    const handled = handlePrismaError(err, { duplicate: "Você já tem uma categoria com esse nome" })
+    if (handled) return handled
     throw err
   }
 }

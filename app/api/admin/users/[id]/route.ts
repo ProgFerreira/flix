@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/session"
+import { handlePrismaError } from "@/lib/api-error"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin()
@@ -16,8 +17,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (plan) data.plan = plan
   if (role) data.role = role
 
-  const user = await prisma.user.update({ where: { id: targetId }, data })
-  return NextResponse.json({ ok: true, user: { id: user.id, status: user.status, plan: user.plan, role: user.role } })
+  try {
+    const user = await prisma.user.update({ where: { id: targetId }, data })
+    return NextResponse.json({ ok: true, user: { id: user.id, status: user.status, plan: user.plan, role: user.role } })
+  } catch (err) {
+    const handled = handlePrismaError(err)
+    if (handled) return handled
+    throw err
+  }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -32,6 +39,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Você não pode excluir sua própria conta" }, { status: 400 })
   }
 
-  await prisma.user.delete({ where: { id: targetId } })
-  return NextResponse.json({ ok: true })
+  try {
+    await prisma.user.delete({ where: { id: targetId } })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const handled = handlePrismaError(err, {
+      referenced: "Esse usuário é dono de uma ou mais coleções — exclua ou transfira a posse delas antes de excluir a conta.",
+    })
+    if (handled) return handled
+    throw err
+  }
 }

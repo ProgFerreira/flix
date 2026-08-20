@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { handlePrismaError } from "@/lib/api-error"
 
 const schema = z.object({
   email: z.string().email(),
@@ -51,8 +52,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!member || (member.role === "viewer" && Number(targetId) !== userId))
     return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
 
-  await prisma.collectionMember.delete({
-    where: { collectionId_userId: { collectionId: Number(id), userId: Number(targetId) } },
-  })
-  return NextResponse.json({ ok: true })
+  try {
+    await prisma.collectionMember.delete({
+      where: { collectionId_userId: { collectionId: Number(id), userId: Number(targetId) } },
+    })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const handled = handlePrismaError(err)
+    if (handled) return handled
+    throw err
+  }
 }

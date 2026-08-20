@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { handlePrismaError } from "@/lib/api-error"
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -36,9 +36,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const category = await prisma.category.update({ where: { id: Number(id) }, data: parsed.data })
     return NextResponse.json(category)
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return NextResponse.json({ error: "Você já tem uma categoria com esse nome" }, { status: 409 })
-    }
+    const handled = handlePrismaError(err, { duplicate: "Você já tem uma categoria com esse nome" })
+    if (handled) return handled
     throw err
   }
 }

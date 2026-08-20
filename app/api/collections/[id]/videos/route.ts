@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { handlePrismaError } from "@/lib/api-error"
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireUserId()
@@ -59,8 +60,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   })
   if (!member || member.role === "viewer") return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
 
-  await prisma.collectionVideo.delete({
-    where: { collectionId_videoId: { collectionId: Number(id), videoId: Number(videoId) } },
-  })
-  return NextResponse.json({ ok: true })
+  try {
+    await prisma.collectionVideo.delete({
+      where: { collectionId_videoId: { collectionId: Number(id), videoId: Number(videoId) } },
+    })
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const handled = handlePrismaError(err)
+    if (handled) return handled
+    throw err
+  }
 }
