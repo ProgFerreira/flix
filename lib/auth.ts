@@ -2,6 +2,13 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit"
+
+// 5 tentativas por conta e por IP a cada 15 minutos. Duas chaves separadas:
+// por e-mail impede que alguém tente força bruta numa conta específica
+// trocando de IP; por IP impede varredura de várias contas de um só lugar.
+const LOGIN_ATTEMPT_LIMIT = 5
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -11,8 +18,14 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Senha", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
+
+        const ip = getClientIp(req?.headers)
+        const byIp = checkRateLimit(`login:ip:${ip}`, LOGIN_ATTEMPT_LIMIT, LOGIN_WINDOW_MS)
+        const byEmail = checkRateLimit(`login:email:${credentials.email}`, LOGIN_ATTEMPT_LIMIT, LOGIN_WINDOW_MS)
+        if (!byIp.allowed || !byEmail.allowed) return null
+
         const user = await prisma.user.findUnique({ where: { email: credentials.email } })
         if (!user) return null
         if (user.status === "blocked") return null
