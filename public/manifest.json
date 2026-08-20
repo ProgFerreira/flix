@@ -1,0 +1,12 @@
+{
+  "name": "GEFlix — Gestão de Vídeos",
+  "short_name": "GEFlix",
+  "description": "Salve e organize seus vídeos favoritos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F1F5F9",
+  "theme_color": "#1E40AF",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

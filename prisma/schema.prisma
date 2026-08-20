@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+
+  role      String   @default("user")    // "user" | "admin"
+  plan      String   @default("free")    // "free" | "premium" | "pro"
+  status    String   @default("active")  // "active" | "blocked"
+
+  videos            Video[]
+  categories        Category[]
+  collections       Collection[]
+  collectionMembers CollectionMember[]
+  sharesGiven       VideoShare[]       @relation("ShareFrom")
+  sharesReceived    VideoShare[]       @relation("ShareTo")
+  payments          PlanPayment[]
+  subscription      Subscription?
+}
+
+model Subscription {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique
+  plan            String    // "premium" | "pro"
+  billing         String    // "monthly" | "annual"
+  amount          Float     // valor cobrado no período
+  startDate       DateTime  @default(now())
+  nextBillingDate DateTime
+  status          String    @default("active") // "active" | "overdue" | "cancelled" | "expired"
+  cancelledAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments PlanPayment[]
+}
+
+model PlanPayment {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  subscriptionId Int?
+  plan           String   // "premium" | "pro"
+  billing        String   @default("monthly") // "monthly" | "annual"
+  amount         Float
+  method         String   @default("manual")  // "pix" | "card" | "boleto" | "manual"
+  note           String?
+  createdAt      DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+}
+
+model Category {
+  id              Int             @id @default(autoincrement())
+  userId          Int
+  name            String
+  color           String          @default("#e85d04")
+  createdAt       DateTime        @default(now())
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoCategories VideoCategory[]
+
+  @@unique([userId, name])
+}
+
+model Video {
+  id              Int             @id @default(autoincrement())
+  userId          Int
+  url             String?
+  videoId         String?
+  title           String
+  thumbnail       String
+  duration        String?
+  channelName     String?
+  watched         Boolean         @default(false)
+  watchedAt       DateTime?
+  favorite        Boolean         @default(false)
+  notes           String?         @db.Text
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now())
+
+  // Vídeo autoral hospedado no próprio servidor (source = "upload")
+  source          String          @default("youtube") // "youtube" | "upload"
+  filePath        String?         // caminho relativo em storage/videos, só quando source = "upload"
+  mimeType        String?
+  fileSize        Int?
+  status          String          @default("ready")   // "processing" | "ready" | "error"
+  published       Boolean         @default(false)     // true = aparece no catálogo de assinantes
+  requiredPlan    String          @default("free")     // "free" | "premium" | "pro" — nível mínimo pra assistir
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoCategories VideoCategory[]
+  shares          VideoShare[]
+  collectionVideos CollectionVideo[]
+}
+
+model VideoCategory {
+  videoId    Int
+  categoryId Int
+  video      Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, categoryId])
+}
+
+model VideoShare {
+  id         Int      @id @default(autoincrement())
+  videoId    Int
+  fromUserId Int
+  toUserId   Int
+  permission String   @default("view")
+  createdAt  DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  from  User  @relation("ShareFrom", fields: [fromUserId], references: [id])
+  to    User  @relation("ShareTo",   fields: [toUserId],   references: [id])
+
+  @@unique([videoId, toUserId])
+}
+
+model Collection {
+  id        Int      @id @default(autoincrement())
+  name      String
+  ownerId   Int
+  createdAt DateTime @default(now())
+
+  owner   User               @relation(fields: [ownerId], references: [id])
+  members CollectionMember[]
+  videos  CollectionVideo[]
+}
+
+model CollectionMember {
+  collectionId Int
+  userId       Int
+  role         String   @default("viewer")
+  joinedAt     DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@id([collectionId, userId])
+}
+
+model CollectionVideo {
+  collectionId Int
+  videoId      Int
+  addedBy      Int
+  addedAt      DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  video      Video      @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, videoId])
+}
