@@ -111,4 +111,14 @@ describe("POST /api/auth/setup", () => {
     const json = await res.json()
     expect(json.code).toBe("P2021")
   })
+
+  it("returns 400 instead of a generic database error when create() races another signup for the same email", async () => {
+    prisma.user.findUnique.mockResolvedValue(null)
+    prisma.user.create.mockRejectedValue(Object.assign(new Error("Unique constraint failed"), { code: "P2002" }))
+    const { POST } = await import("@/app/api/auth/setup/route")
+    const res = await POST(post({ email: "eu@flix.test", password: "senha123", acceptedTerms: true }))
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json.error).toMatch(/Tente entrar ou use outro e-mail/)
+  })
 })

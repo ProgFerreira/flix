@@ -1,5 +1,5 @@
-import { PageLoading } from "@/app/components/RouteFallback"
+import { CourseFallback } from "./CourseFallback"
 
 export default function Loading() {
-  return <PageLoading />
+  return <CourseFallback message="Carregando..." />
 }

@@ -36,22 +36,37 @@ export async function POST(req: NextRequest) {
     }
 
     const hashed = await bcrypt.hash(parsed.data.password, 10)
-    const user = await prisma.user.create({
-      data: {
-        email: parsed.data.email,
-        password: hashed,
-        name: parsed.data.name,
-        consentimentos: {
-          create: CONSENTIMENTO_TIPOS.map((tipo) => ({
-            tipo,
-            aceito: true,
-            versao: TERMS_VERSION,
-            ip,
-          })),
+    let user: { id: number; email: string; name: string | null }
+    try {
+      user = await prisma.user.create({
+        data: {
+          email: parsed.data.email,
+          password: hashed,
+          name: parsed.data.name,
+          consentimentos: {
+            create: CONSENTIMENTO_TIPOS.map((tipo) => ({
+              tipo,
+              aceito: true,
+              versao: TERMS_VERSION,
+              ip,
+            })),
+          },
         },
-      },
-      select: { id: true, email: true, name: true },
-    })
+        select: { id: true, email: true, name: true },
+      })
+    } catch (err) {
+      // Duas requisições de cadastro pro mesmo email podem passar pela checagem
+      // de duplicidade acima antes de qualquer uma commitar (race condition).
+      // Nesse caso o create() perde a corrida por violar o índice único do
+      // email — trata como duplicidade normal em vez de erro genérico de banco.
+      if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
+        return NextResponse.json(
+          { error: "Não foi possível criar a conta. Tente entrar ou use outro e-mail." },
+          { status: 400 },
+        )
+      }
+      throw err
+    }
 
     await issueEmailVerification(user.id, user.email)
 

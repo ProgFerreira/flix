@@ -32,13 +32,14 @@ export function CourseLanding({
     () => course.modules.flatMap((module) => module.lessons),
     [course.modules],
   )
+  const hasProgress = course.completedCount > 0 || (course.progressPercent ?? 0) > 0
   const start = useMemo(() => {
-    if (course.continueLesson) {
+    if (hasProgress && course.continueLesson) {
       const found = lessons.find((lesson) => lesson.id === course.continueLesson?.id && playable(lesson))
       if (found) return found
     }
     return lessons.find(playable) ?? null
-  }, [course.continueLesson, lessons])
+  }, [course.continueLesson, hasProgress, lessons])
 
   const [openModules, setOpenModules] = useState<Record<number, boolean>>(() => {
     const first = course.modules[0]?.id
@@ -52,7 +53,7 @@ export function CourseLanding({
     return `/catalogo/cursos/${course.slug}?${params}`
   }
 
-  const ctaLabel = (course.completedCount > 0 || (course.progressPercent ?? 0) > 0) ? "Continuar" : "Iniciar curso"
+  const ctaLabel = hasProgress ? "Continuar" : "Iniciar curso"
   const ctaHref = start ? aulaHref(start.id) : null
 
   return (

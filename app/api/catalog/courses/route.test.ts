@@ -95,6 +95,15 @@ describe("GET /api/catalog/courses/[slug]", () => {
     prisma.watchProgress.findMany.mockReset()
   })
 
+  it("returns 404 for an invalid slug", async () => {
+    const { GET } = await import("@/app/api/catalog/courses/[slug]/route")
+    const res = await GET(new NextRequest("http://localhost/api/catalog/courses/Nope"), {
+      params: Promise.resolve({ slug: "Nope" }),
+    })
+    expect(res.status).toBe(404)
+    expect(prisma.course.findUnique).not.toHaveBeenCalled()
+  })
+
   it("returns 404 for an unpublished course", async () => {
     optionalUserId.mockResolvedValue(null)
     prisma.course.findUnique.mockResolvedValue({
