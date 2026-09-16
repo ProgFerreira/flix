@@ -6,7 +6,10 @@ applyDatabaseUrlFromEnv()
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 function createPrisma() {
-  return new PrismaClient()
+  const url = process.env.DATABASE_URL
+  return url
+    ? new PrismaClient({ datasources: { db: { url } } })
+    : new PrismaClient()
 }
 
 /** Client antigo (antes do generate) não tem modelos novos — recria em vez de reutilizar. */

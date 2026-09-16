@@ -28,5 +28,7 @@ describe("GET /api/health", () => {
     expect(res.status).toBe(503)
     const json = await res.json()
     expect(json.status).toBe("degraded")
+    expect(json.database).toBe("error")
+    expect(json.hasDatabaseUrl).toEqual(expect.any(Boolean))
   })
 })

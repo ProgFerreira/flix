@@ -47,5 +47,9 @@ function run(command) {
 
 const port = process.env.PORT || "3003"
 
-await run("npx prisma migrate deploy")
+try {
+  await run("npx prisma migrate deploy")
+} catch (err) {
+  console.error("[db] migrate deploy falhou; o app sobe mesmo assim", err)
+}
 await run(`npx next start -H 0.0.0.0 -p ${port}`)

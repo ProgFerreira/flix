@@ -8,10 +8,9 @@ function decodeComponent(value: string): string {
   }
 }
 
+/** Node.js on Hostinger resolves localhost to IPv6 ::1, which MySQL rejects. */
 function rewriteHost(host: string, production: boolean): string {
-  if (production && (host === "localhost" || host === "127.0.0.1")) {
-    return HOSTINGER_MYSQL_HOST
-  }
+  if (production && host === "localhost") return "127.0.0.1"
   return host
 }
 
@@ -26,24 +25,102 @@ function composeFromSplitVars(): string | undefined {
   return `mysql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${safeHost}:${port}/${database}`
 }
 
-/** Encodes @/$ in the password and uses the Hostinger MySQL hostname in production. */
+export function parseMysqlUrl(raw: string): {
+  user: string
+  password: string
+  host: string
+  port: string
+  database: string
+  query: string
+} | null {
+  const parsed = raw.trim().match(/^mysql:\/\/([^:/]+):(.+)@([^:/]+):(\d+)\/([^?]+)(\?.*)?$/)
+  if (!parsed) return null
+  return {
+    user: decodeComponent(parsed[1]),
+    password: decodeComponent(parsed[2]),
+    host: parsed[3],
+    port: parsed[4],
+    database: parsed[5],
+    query: parsed[6] ?? "",
+  }
+}
+
+export function buildMysqlUrl(parts: {
+  user: string
+  password: string
+  host: string
+  port: string
+  database: string
+  query?: string
+}): string {
+  return `mysql://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${parts.port}/${parts.database}${parts.query ?? ""}`
+}
+
+/** Encodes @/$ in the password and uses 127.0.0.1 instead of localhost in production. */
 export function normalizeDatabaseUrl(
   raw: string,
   opts?: { production?: boolean },
 ): string {
   const trimmed = raw.trim()
   const production = opts?.production ?? process.env.NODE_ENV === "production"
-  const parsed = trimmed.match(/^mysql:\/\/([^:/]+):(.+)@([^:/]+):(\d+)\/([^?]+)(\?.*)?$/)
+  const parsed = parseMysqlUrl(trimmed)
   if (!parsed) {
     return trimmed.replace("@localhost", `@${rewriteHost("localhost", production)}`)
   }
-  const user = decodeComponent(parsed[1])
-  const password = decodeComponent(parsed[2])
-  const host = rewriteHost(parsed[3], production)
-  const port = parsed[4]
-  const database = parsed[5]
-  const query = parsed[6] ?? ""
-  return `mysql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}${query}`
+  parsed.host = rewriteHost(parsed.host, production)
+  return buildMysqlUrl(parsed)
+}
+
+export function withDatabaseHost(raw: string, host: string): string {
+  const parsed = parseMysqlUrl(normalizeDatabaseUrl(raw, { production: false }))
+  if (!parsed) return raw
+  parsed.host = host
+  return buildMysqlUrl(parsed)
+}
+
+export function databaseHostOf(raw: string | undefined): string | null {
+  if (!raw) return null
+  return parseMysqlUrl(normalizeDatabaseUrl(raw, { production: false }))?.host ?? null
+}
+
+export function candidateDatabaseUrls(raw: string): { label: string; url: string }[] {
+  const base = normalizeDatabaseUrl(raw, { production: true })
+  const hosts = ["127.0.0.1", "localhost", HOSTINGER_MYSQL_HOST]
+  const seen = new Set<string>()
+  const out: { label: string; url: string }[] = []
+  for (const host of hosts) {
+    const url = withDatabaseHost(base, host)
+    if (seen.has(url)) continue
+    seen.add(url)
+    out.push({ label: host, url })
+  }
+  return out
+}
+
+export function sanitizeDbMessage(message: string): string {
+  return message
+    .replace(/mysql:\/\/[^@\s]+@/g, "mysql://***@")
+    .replace(/password=[^&\s]+/gi, "password=***")
+}
+
+export function parseEnvText(text: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith("#")) continue
+    const eq = trimmed.indexOf("=")
+    if (eq < 0) continue
+    const key = trimmed.slice(0, eq).trim()
+    let value = trimmed.slice(eq + 1).trim()
+    if (
+      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+    out[key] = value
+  }
+  return out
 }
 
 export function applyDatabaseUrlFromEnv(): void {

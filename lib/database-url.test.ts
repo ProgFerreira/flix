@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { applyDatabaseUrlFromEnv, normalizeDatabaseUrl } from "@/lib/database-url"
+import {
+  applyDatabaseUrlFromEnv,
+  candidateDatabaseUrls,
+  normalizeDatabaseUrl,
+  sanitizeDbMessage,
+  withDatabaseHost,
+} from "@/lib/database-url"
 
 const original = { ...process.env }
 
@@ -20,12 +26,12 @@ describe("normalizeDatabaseUrl", () => {
     expect(url).toBe("mysql://u_flix:Y9n%40dT4a%24V@auth-db1193.hstgr.io:3306/u_flix")
   })
 
-  it("rewrites localhost to the Hostinger MySQL host in production", () => {
+  it("rewrites localhost to 127.0.0.1 in production", () => {
     const url = normalizeDatabaseUrl(
       "mysql://u_flix:secret@localhost:3306/u_flix",
       { production: true },
     )
-    expect(url).toBe("mysql://u_flix:secret@auth-db1193.hstgr.io:3306/u_flix")
+    expect(url).toBe("mysql://u_flix:secret@127.0.0.1:3306/u_flix")
   })
 
   it("keeps localhost in development", () => {
@@ -34,6 +40,29 @@ describe("normalizeDatabaseUrl", () => {
       { production: false },
     )
     expect(url).toBe("mysql://root:@localhost:3306/flix")
+  })
+})
+
+describe("candidateDatabaseUrls", () => {
+  it("tries IPv4 loopback before the Hostinger remote host", () => {
+    const hosts = candidateDatabaseUrls(
+      "mysql://u_flix:secret@auth-db1193.hstgr.io:3306/u_flix",
+    ).map((c) => c.label)
+    expect(hosts).toEqual(["127.0.0.1", "localhost", "auth-db1193.hstgr.io"])
+  })
+
+  it("swaps only the host", () => {
+    expect(withDatabaseHost("mysql://u_flix:a%40b@x:3306/db", "127.0.0.1")).toBe(
+      "mysql://u_flix:a%40b@127.0.0.1:3306/db",
+    )
+  })
+})
+
+describe("sanitizeDbMessage", () => {
+  it("strips credentials from a Prisma connection string", () => {
+    expect(
+      sanitizeDbMessage("Can't reach mysql://u_flix:Y9n%40dT4a%24V@127.0.0.1:3306/u_flix"),
+    ).toBe("Can't reach mysql://***@127.0.0.1:3306/u_flix")
   })
 })
 
@@ -47,7 +76,7 @@ describe("applyDatabaseUrlFromEnv", () => {
     process.env.DB_NAME = "u_flix"
     applyDatabaseUrlFromEnv()
     expect(process.env.DATABASE_URL).toBe(
-      "mysql://u_flix:Y9n%40dT4a%24V@auth-db1193.hstgr.io:3306/u_flix",
+      "mysql://u_flix:Y9n%40dT4a%24V@127.0.0.1:3306/u_flix",
     )
   })
 })
