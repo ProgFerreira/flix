@@ -59,7 +59,9 @@ export function runMigrateDeploy(): Promise<{ ok: boolean; message: string }> {
       resolve(result)
     })
     child.on("exit", (code) => {
-      const message = out.trim().slice(-500)
+      // O topo da saída costuma trazer a mensagem de erro real do Prisma;
+      // o final é mais stack trace. Corta do início, não do fim.
+      const message = out.trim().slice(0, 4000)
       const result = { ok: code === 0, message: message || `exit ${code}` }
       g.__flixMigrate = result
       if (result.ok) console.info("[db] prisma migrate deploy ok")
