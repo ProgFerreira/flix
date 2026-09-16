@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { lastDatabaseProbes, pickedDatabaseHost } from "@/lib/pick-database"
+import { lastMigrateResult } from "@/lib/migrate-deploy"
 import { databaseHostOf, sanitizeDbMessage } from "@/lib/database-url"
 
 export async function GET() {
@@ -13,6 +14,7 @@ export async function GET() {
     dbCode?: string
     dbMessage?: string
     probes: ReturnType<typeof lastDatabaseProbes>
+    migrate: ReturnType<typeof lastMigrateResult> | null
   } = {
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -21,6 +23,7 @@ export async function GET() {
     hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
     dbHost: pickedDatabaseHost() ?? databaseHostOf(process.env.DATABASE_URL),
     probes: lastDatabaseProbes(),
+    migrate: lastMigrateResult() ?? null,
   }
 
   try {

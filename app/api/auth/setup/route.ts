@@ -56,9 +56,11 @@ export async function POST(req: NextRequest) {
     await issueEmailVerification(user.id, user.email)
 
     return NextResponse.json(user)
-  } catch {
+  } catch (err) {
+    const code = err && typeof err === "object" && "code" in err ? String(err.code) : undefined
+    console.error("[signup]", code, err)
     return NextResponse.json(
-      { error: "Não foi possível criar a conta. Verifique o banco de dados." },
+      { error: "Não foi possível criar a conta. Verifique o banco de dados.", code },
       { status: 500 },
     )
   }

@@ -3,7 +3,11 @@ export async function register() {
   const { pickWorkingDatabaseUrl } = await import("./lib/pick-database")
   const probes = await pickWorkingDatabaseUrl()
   const ok = probes.find((p) => p.ok)
-  if (ok) console.info(`[db] conectado em ${ok.host}`)
+  if (ok) {
+    console.info(`[db] conectado em ${ok.host}`)
+    const { runMigrateDeploy } = await import("./lib/migrate-deploy")
+    await runMigrateDeploy()
+  }
   else console.error("[db] nenhum host MySQL respondeu", probes)
   const { warnIfTrustProxyUnset } = await import("./lib/rate-limit")
   warnIfTrustProxyUnset()

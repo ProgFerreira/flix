@@ -102,4 +102,13 @@ describe("POST /api/auth/setup", () => {
     expect(json).toEqual({ id: 9, email: "eu@flix.test", name: "Rener" })
     expect(json).not.toHaveProperty("password")
   })
+
+  it("returns 500 with the Prisma code when the database write fails", async () => {
+    prisma.user.findUnique.mockRejectedValue(Object.assign(new Error("table"), { code: "P2021" }))
+    const { POST } = await import("@/app/api/auth/setup/route")
+    const res = await POST(post({ email: "eu@flix.test", password: "senha123", acceptedTerms: true }))
+    expect(res.status).toBe(500)
+    const json = await res.json()
+    expect(json.code).toBe("P2021")
+  })
 })
