@@ -29,18 +29,18 @@ function loadEnv(file) {
 loadEnv(".env.production")
 loadEnv(".env")
 
-function run(command) {
+function runFile(cmd, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, {
+    const child = spawn(cmd, args, {
       cwd: root,
       env: process.env,
-      shell: true,
+      shell: false,
       stdio: "inherit",
     })
     child.on("error", reject)
     child.on("exit", (code) => {
       if (code === 0) resolve()
-      else reject(new Error(`${command} exited with ${code}`))
+      else reject(new Error(`${cmd} ${args.join(" ")} exited with ${code}`))
     })
   })
 }
@@ -48,8 +48,14 @@ function run(command) {
 const port = process.env.PORT || "3003"
 
 try {
-  await run("npx prisma migrate deploy")
+  const { createRequire } = await import("node:module")
+  const require = createRequire(import.meta.url)
+  const prismaCli = path.join(path.dirname(require.resolve("prisma/package.json")), "build", "index.js")
+  await runFile(process.execPath, [prismaCli, "migrate", "deploy"])
 } catch (err) {
   console.error("[db] migrate deploy falhou; o app sobe mesmo assim", err)
 }
-await run(`npx next start -H 0.0.0.0 -p ${port}`)
+
+const nextCli = path.join(root, "node_modules", "next", "dist", "bin", "next")
+await runFile(process.execPath, [nextCli, "start", "-H", "0.0.0.0", "-p", String(port)])
+
