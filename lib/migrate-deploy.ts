@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
-import { createRequire } from "node:module"
 import path from "node:path"
 
 const g = globalThis as unknown as {
@@ -23,9 +22,14 @@ export function projectRootWithPrisma(cwd = process.cwd()): string {
 }
 
 export function prismaMigrateArgs(): { cmd: string; args: string[] } {
-  const require = createRequire(import.meta.url)
-  const pkg = require.resolve("prisma/package.json")
-  const cli = path.join(path.dirname(pkg), "build", "index.js")
+  // Evita require.resolve("prisma/package.json"): esse arquivo roda dentro do
+  // instrumentation.ts, que o Next empacota com webpack. Um require dinâmico
+  // nesse contexto pode devolver um id de módulo do bundle (um número) em vez
+  // do caminho real, e path.dirname() quebra com "path argument must be of
+  // type string. Received type number". Monta o caminho na mão a partir da
+  // raiz do projeto, sem passar pelo resolvedor de módulos.
+  const root = projectRootWithPrisma()
+  const cli = path.join(root, "node_modules", "prisma", "build", "index.js")
   if (!existsSync(cli)) {
     throw new Error(`Prisma CLI não encontrada em ${cli}`)
   }
