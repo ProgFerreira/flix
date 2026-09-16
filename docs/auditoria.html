@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flix — auditoria</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --ink: #1c1916;
+      --muted: #5c564e;
+      --line: #d9d2c5;
+      --accent: #1f4d3a;
+      --feito: #1f4d3a;
+      --feito-bg: #e4efe8;
+      --pendente: #8a5a12;
+      --pendente-bg: #f6ead4;
+      --critico: #8b1e1e;
+      --critico-bg: #f6e4e4;
+      --alto: #9a3b12;
+      --alto-bg: #f7e6db;
+      --medio: #6f5a12;
+      --medio-bg: #f4edd4;
+      --baixo: #3d4a56;
+      --baixo-bg: #e7ecf0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.55 "Segoe UI", system-ui, sans-serif;
+    }
+    .wrap {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    header.hero {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+    header.hero h1 {
+      margin: 0 0 8px;
+      font-size: 1.75rem;
+      letter-spacing: -0.02em;
+    }
+    .meta { color: var(--muted); font-size: 0.92rem; }
+    .meta span + span::before { content: " · "; }
+    section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      padding: 22px 28px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 1.15rem;
+      color: var(--accent);
+    }
+    h3 { margin: 18px 0 8px; font-size: 1rem; }
+    p { margin: 0 0 12px; }
+    p:last-child { margin-bottom: 0; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      padding: 12px 14px;
+    }
+    .stat strong { display: block; font-size: 1.4rem; }
+    .stat span { color: var(--muted); font-size: 0.85rem; }
+    .cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    ul.tracker { margin: 0; padding-left: 18px; }
+    ul.tracker li { margin: 0 0 8px; }
+    .empty { color: var(--muted); font-style: italic; }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      vertical-align: middle;
+    }
+    .badge.feito { color: var(--feito); background: var(--feito-bg); }
+    .badge.pendente { color: var(--pendente); background: var(--pendente-bg); }
+    .badge.critico { color: var(--critico); background: var(--critico-bg); }
+    .badge.alto { color: var(--alto); background: var(--alto-bg); }
+    .badge.medio { color: var(--medio); background: var(--medio-bg); }
+    .badge.baixo { color: var(--baixo); background: var(--baixo-bg); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      margin: 8px 0 4px;
+    }
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 10px 8px 0;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .approval {
+      border-left: 4px solid var(--accent);
+    }
+    .evidence { color: var(--muted); font-size: 0.88rem; }
+    @media (max-width: 720px) {
+      .stats, .cols { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1>Flix — auditoria</h1>
+      <p class="meta">
+        <span>Auditoria: <time id="audited-at">15 set 2026</time></span>
+        <span>Progresso atualizado: <time id="progress-updated-at">15 set 2026</time></span>
+      </p>
+    </header>
+
+    <section id="progresso">
+      <h2>Progresso</h2>
+      <div class="stats">
+        <div class="stat"><strong id="count-total">0</strong><span>Itens no plano</span></div>
+        <div class="stat"><strong id="count-feito">0</strong><span>Implementado</span></div>
+        <div class="stat"><strong id="count-pendente">0</strong><span>Ainda falta</span></div>
+      </div>
+      <div class="cols">
+        <div>
+          <h3>Implementado</h3>
+          <ul class="tracker" id="list-feito"></ul>
+        </div>
+        <div>
+          <h3>Ainda falta</h3>
+          <ul class="tracker" id="list-pendente"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>1. Resumo executivo</h2>
+      <p>O Flix (GEFlix) é dois produtos no mesmo app Next.js. A biblioteca em <code>/</code> organiza YouTube pessoal (categorias, coleções, histórico). O catálogo em <code>/catalogo</code> é a vitrine paga: arquivo MP4/WebM/MOV no disco, player autenticado, paywall por plano. Visitante assiste o free sem conta; Premium (R$ 10/mês) e Pro (R$ 17,90/mês) desbloqueiam o resto depois que o admin confirma o PIX. Não é marketplace nem curso com módulos — é clube de um criador.</p>
+      <p>Banco local conferido em 15 set 2026: 8 usuários (2 admin, 6 user), 21 vídeos, 3 publicados, 3 assinaturas, 3 pagamentos. A exclusão de conta já é anonimização LGPD (<code>deleteUserAccount</code>): preserva <code>PlanPayment</code>. A FK <code>PlanPayment_userId_fkey</code> no MySQL live é RESTRICT. Não há motivo para reescrever o produto.</p>
+      <p>O achado que muda a prioridade: o README e o POST de criação/upload do catálogo dizem que só admin publica, mas o dono de qualquer vídeo ainda consegue publicar. <code>PATCH</code> e <code>DELETE</code> em <code>/api/catalog/[id]</code> usam <code>requireUserId</code> + dono, não <code>requireAdmin</code>. A UI esconde o botão “Publicar” do header para não-admin, mas mostra Publicar/Despublicar em todo card <code>mine</code>. No banco live o vídeo 22 (upload, publicado, plano free) pertence ao usuário 3 com role <code>user</code>. A vitrine deixa de ser só do criador.</p>
+      <p>Segundo achado comprovado no information_schema: <code>ConsentimentoLgpd</code> está em MyISAM e não tem FK no banco live — a migration declara InnoDB+FK, o MySQL live não aplicou. RateLimitBucket e PlanPayment estão em InnoDB. Sem achado crítico (nada bloqueia nem corrompe pagamento).</p>
+    </section>
+
+    <section>
+      <h2>2. Stack identificada</h2>
+      <p class="evidence">Fonte: package.json, package-lock.json, README.md, prisma/schema.prisma, lib/auth.ts. Versões do lockfile.</p>
+      <table>
+        <thead>
+          <tr><th>Camada</th><th>Tecnologia</th><th>Versão</th><th>Observação</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Framework</td><td>Next.js App Router</td><td>16.2.9</td><td>Porta 3003 em 0.0.0.0; app/ na raiz, sem src/</td></tr>
+          <tr><td>UI</td><td>React</td><td>19.2.4</td><td>Header horizontal + app/css/app.css</td></tr>
+          <tr><td>Linguagem</td><td>TypeScript</td><td>^5.9.3</td><td>strict</td></tr>
+          <tr><td>ORM / banco</td><td>Prisma + MySQL</td><td>5.22.0</td><td>Pin em 5 de propósito; FKs InnoDB (exceto ConsentimentoLgpd live)</td></tr>
+          <tr><td>Auth</td><td>NextAuth Credentials JWT</td><td>4.24.14</td><td>v4 de propósito; role/status revalidados no banco</td></tr>
+          <tr><td>Validação</td><td>Zod + RHF</td><td>Zod 4.4.3</td><td>Mesmo schema em validators/ para senha</td></tr>
+          <tr><td>E-mail</td><td>Resend</td><td>^6.21.0</td><td>Reset, verificação, lembretes de cobrança</td></tr>
+          <tr><td>Upload / vídeo</td><td>disco local + FFmpeg</td><td>—</td><td>storage/videos; stream Range em /api/videos/[id]/stream</td></tr>
+          <tr><td>Pagamento</td><td>PIX manual</td><td>—</td><td>Enum card/boleto existe; fluxo real é PIX + aprovação admin</td></tr>
+          <tr><td>Testes / CI</td><td>Vitest + Playwright + GHA</td><td>Vitest 4.1.11</td><td>lint, typecheck, test, build (Node 22)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>3. Funcionalidades já implementadas</h2>
+      <h3>Clube do criador (o que vende)</h3>
+      <p>Upload em <code>/admin/videos</code> e POST admin em <code>/api/catalog</code> + <code>/api/catalog/upload</code> (MP4/WebM/MOV até 3 GB, magic-bytes). Plano mínimo por vídeo. Stream privado com Range, ETag e <code>private, no-cache</code>. Visitante free; assinante vê conforme o plano. Grants extras (presente / cliente). Favorito e progresso por usuário.</p>
+      <h3>Cobrança e operação</h3>
+      <p><code>/plano</code> pede upgrade, mostra PIX, envia comprovante. Admin aprova em <code>/admin/solicitacoes</code>, registra pagamento, renova / cancela assinatura. Cron diário: vence em 7 dias, atraso, expiração e rebaixa o plano. Auditoria, CSV, health, LGPD (export JSON + anonimizar). CSRF de Origin em <code>/api/*</code>. Rate limit MySQL em login/cadastro/recuperação.</p>
+      <h3>Biblioteca pessoal (não é a loja)</h3>
+      <p><code>/</code> é organizador de YouTube: categorias, notas, coleções com link <code>/c/[token]</code>, histórico, estatísticas, cota 20 / 100 / ilimitado. POST <code>/api/videos</code> cria só <code>source=youtube</code>, <code>published</code> default false. Arquivo autoral entra pelo catálogo/admin, não por essa tela.</p>
+      <h3>Jornada para vender uma aula hoje</h3>
+      <table>
+        <thead>
+          <tr><th>Passo</th><th>Quem</th><th>Onde</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Enviar arquivo ou link</td><td>Admin</td><td>/admin/videos ou /catalogo (botão Publicar)</td></tr>
+          <tr><td>Assistir free</td><td>Visitante</td><td>/catalogo + stream se requiredPlan=free</td></tr>
+          <tr><td>Pedir Premium/Pro</td><td>Assinante</td><td>/plano + comprovante PIX</td></tr>
+          <tr><td>Liberar acesso</td><td>Admin</td><td>/admin/solicitacoes ou /admin/assinaturas</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. Problemas encontrados</h2>
+      <h3><span class="badge alto">Alto</span> Dono não-admin publica e apaga no catálogo</h3>
+      <p><strong>Onde:</strong> <code>app/api/catalog/[id]/route.ts:20-31</code> (PATCH), <code>:88-99</code> (DELETE); <code>lib/video-grants.ts:99-111</code>; <code>app/catalogo/page.tsx:364-368</code>; grants em <code>app/api/catalog/[id]/grants/route.ts:18-27</code>.</p>
+      <p><strong>O que é:</strong> POST create/upload exige <code>requireAdmin</code> (<code>catalog/route.ts:131-132</code>, <code>upload/route.ts:29-30</code>). PATCH/DELETE/grants aceitam qualquer dono. GET público lista <code>published: true</code> sem filtrar role do dono. Um <code>user</code> autenticado pode <code>PATCH /api/catalog/{id}</code> com <code>{ published: true }</code> num vídeo da biblioteca (mesmo modelo <code>Video</code>) e aparecer na vitrine. A UI ainda mostra Publicar em card <code>mine</code>.</p>
+      <p><strong>Impacto:</strong> a loja deixa de ser só do criador; o PIX continua na chave do dono. No MySQL live o vídeo 22 (upload publicado, userId 3, role user) já está na vitrine.</p>
+      <p><strong>Solução:</strong> <code>requireAdmin()</code> em PATCH/DELETE/grants do catálogo (ou pelo menos no campo <code>published</code>); esconder ações de card para não-admin; decidir o que fazer com o vídeo 22. Testes em <code>route.test.ts</code> dessas rotas. Complexidade baixa.</p>
+      <h3><span class="badge medio">Médio</span> ConsentimentoLgpd MyISAM sem FK no banco live</h3>
+      <p><strong>Onde:</strong> information_schema (ENGINE=MyISAM; tabela ausente de REFERENTIAL_CONSTRAINTS). Schema Prisma declara FK Cascade (<code>schema.prisma:266</code>); migration <code>20260916090000_lgpd_soft_delete</code> cria a FK. Única tabela MyISAM no schema atual.</p>
+      <p><strong>Impacto:</strong> o app anonimiza em vez de apagar o User, então hoje não explode. Hard-delete ou restore de backup pode deixar consentimento órfão. RateLimitBucket já foi corrigido pelo mesmo padrão (<code>20260917100000_rate_limit_innodb</code>).</p>
+      <p><strong>Solução:</strong> migration <code>ALTER TABLE ConsentimentoLgpd ENGINE=InnoDB</code> + recriar <code>ConsentimentoLgpd_userId_fkey</code>. Complexidade baixa. Aceite: query no information_schema.</p>
+      <h3><span class="badge baixo">Baixo</span> Miniatura publicada sem paywall</h3>
+      <p><strong>Onde:</strong> <code>app/api/videos/[id]/thumbnail/route.ts:26,44</code> — visitante vê thumb se <code>published</code>; cache <code>public, max-age=86400</code>. O stream do vídeo continua paywalled.</p>
+      <p><strong>Impacto:</strong> frame JPEG de aula paga vaza; não libera o arquivo. Solução: exigir o mesmo <code>canAccessCatalogVideo</code> do stream, ou aceitar como preview de vitrine. Complexidade baixa.</p>
+      <h3><span class="badge baixo">Baixo</span> JWT engole erro de banco</h3>
+      <p><strong>Onde:</strong> <code>lib/auth.ts:119-121</code>. Se o MySQL cair no callback JWT, o token antigo (role/status) permanece. APIs com <code>requireUserId</code> ainda consultam <code>currentDbUser</code>. Impacto só se a UI confiar no JWT sem bater na API. Complexidade baixa.</p>
+      <h3><span class="badge baixo">Baixo</span> Stream por ID permanente</h3>
+      <p><strong>Onde:</strong> <code>/api/videos/[id]/stream</code> — auth por sessão/plano, não URL assinada. README já documenta R2/URL assinada quando o Node saturar. Não é vazamento anônimo. Adiar até volume real.</p>
+    </section>
+
+    <section>
+      <h2>5. Proposta de MVP / escopo</h2>
+      <p>Uma conta = um espectador. Papéis: visitante, assinante (user), admin. Sem perfil infantil.</p>
+      <table>
+        <thead>
+          <tr><th>Obrigatório agora</th><th>Fase 2</th><th>Não vale a pena ainda</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Alinhar publicação do catálogo com “só o criador” (API + UI). Migration ConsentimentoLgpd InnoDB+FK. Operar FFmpeg, CRON_SECRET e chave PIX real.</td>
+            <td>Decidir destino do vídeo 22. Miniatura com o mesmo gate do stream, se a vitrine não quiser preview. URL assinada só com volume que doa no Node.</td>
+            <td>Course/Lesson/Module (outro produto). Stripe/Mercado Pago (o PIX manual já cobra). Prisma 6 e NextAuth v5 (pin de propósito). CDN pública no MP4 (vaza conteúdo pago). Split de vendedor.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>6. Arquitetura e modelo de dados</h2>
+      <table>
+        <thead>
+          <tr><th>Entidade</th><th>Estado</th><th>Observação</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>User (role, plan, status, deletadoEm)</td><td>Existe</td><td>Soft-delete + anonimização</td></tr>
+          <tr><td>Video (youtube | upload, requiredPlan, published)</td><td>Existe</td><td>Mesma tabela para biblioteca e vitrine — daí o furo do PATCH</td></tr>
+          <tr><td>Subscription + PlanPayment + PlanChangeRequest</td><td>Existe</td><td>PIX + aprovação; PlanPayment ON DELETE RESTRICT no MySQL live</td></tr>
+          <tr><td>Favorite / WatchProgress</td><td>Existe</td><td>Por (usuário, vídeo)</td></tr>
+          <tr><td>VideoAccessGrant</td><td>Existe</td><td>Libera pessoa específica; hoje o dono gerencia</td></tr>
+          <tr><td>ConsentimentoLgpd</td><td>Parcial</td><td>Tabela existe; engine MyISAM, FK ausente no banco live</td></tr>
+          <tr><td>Course / Lesson / Module</td><td>Não existe</td><td>Não inventar até pedir trilha didática</td></tr>
+          <tr><td>Seller / payout / split</td><td>Não existe</td><td>Uma chave PIX só</td></tr>
+          <tr><td>Stripe / Mercado Pago</td><td>Não existe</td><td>Enum card/boleto sem implementação de gateway</td></tr>
+        </tbody>
+      </table>
+      <p>Risco futuro: <code>User.plan</code> convive com <code>Subscription.status</code>. O stream já chama <code>syncSubscriptionStatus</code> antes de ler o plano. Qualquer tela nova de paywall precisa passar por aí — não ler <code>user.plan</code> cru.</p>
+    </section>
+
+    <section>
+      <h2>7. Plano de implementação por etapas</h2>
+      <h3>1. Fechar a vitrine (lacuna de produto, se você confirmar)</h3>
+      <p>Objetivo: só admin cria, publica, despublica, concede grants e apaga no catálogo. Arquivos: <code>app/api/catalog/[id]/route.ts</code>, <code>app/api/catalog/[id]/grants/route.ts</code>, <code>app/catalogo/page.tsx</code>. Sem migration. Risco: o usuário 3 deixa de gerenciar o vídeo 22 pela UI; o arquivo continua até o admin decidir. Aceite: conta <code>user</code> recebe 403 em PATCH/DELETE/grants; admin segue em <code>/admin/videos</code> e no botão Publicar. Testes: <code>app/api/catalog/[id]/route.test.ts</code> e grants. Rollback: git.</p>
+      <h3>2. Integridade LGPD no banco (lacuna comprovada)</h3>
+      <p>Objetivo: <code>ConsentimentoLgpd</code> InnoDB + FK. Arquivo: nova migration no padrão de <code>20260917100000_rate_limit_innodb</code>. Sem dependência nova. Aceite: <code>ENGINE=InnoDB</code> e <code>ConsentimentoLgpd_userId_fkey</code> no information_schema. Rollback: revert da migration.</p>
+      <h3>3. Operar o que já existe (não construir)</h3>
+      <p>FFmpeg no PATH (ou FFMPEG_PATH), CRON_SECRET, tarefa Windows, chave PIX real. Sem isso a aula fica em <code>processing</code> e o lembrete de vencimento não sai. Não é código novo.</p>
+      <h3>4. Cursos / gateway / CDN</h3>
+      <p>Só depois de uma trilha didática clara, volume de PIX que doa, ou player saturando o Node. Cada um é construir do zero, não fechar lacuna.</p>
+    </section>
+
+    <section>
+      <h2>8. Dúvidas que precisam ser respondidas</h2>
+      <table>
+        <thead>
+          <tr><th>Pergunta</th><th>Por que trava o próximo passo</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A vitrine é só suas aulas, ou qualquer assinante também publica?</td>
+            <td>README e POST já assumem o primeiro. PATCH/UI ainda assumem o segundo. Travar em admin é linha de produto. O vídeo 22 (user 3) precisa de destino: despublicar, transferir, ou manter.</td>
+          </tr>
+          <tr>
+            <td>Precisa de curso com módulos, ou uma lista de vídeos com plano basta?</td>
+            <td>Course/Lesson não existe. Lista ordenada é barata; currículo é outro sistema.</td>
+          </tr>
+          <tr>
+            <td>PIX conferido na mão está ok para as primeiras vendas?</td>
+            <td>Gateway agora seria troca de produto, não evolução do fluxo que já cobra.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>9. Primeiras alterações recomendadas</h2>
+      <ol>
+        <li>Confirmar se o catálogo fica só do admin — isso decide a etapa 1 e o vídeo 22.</li>
+        <li>Se sim: exigir admin em PATCH/DELETE/grants de <code>/api/catalog/[id]</code>; esconder Publicar/Despublicar/grants/excluir para não-admin na UI.</li>
+        <li>Migration ConsentimentoLgpd → InnoDB + FK (mesmo padrão do RateLimitBucket).</li>
+        <li>Usar <code>/admin/videos</code> como caminho oficial das aulas (não consome cota da biblioteca).</li>
+        <li>Não mexer em Prisma 6, NextAuth v5, Stripe nem Course até as dúvidas da seção 8.</li>
+      </ol>
+    </section>
+
+    <section class="approval">
+      <h2>Aprovação</h2>
+      <p>Nada foi implementado nesta etapa. Diga se a vitrine é só sua e se PIX manual basta — a partir daí dá para executar a etapa 1. O vídeo 22 (upload publicado do user 3) precisa de uma decisão explícita.</p>
+    </section>
+  </div>
+
+  <script type="application/json" id="audit-tracker">
+{
+  "project": "Flix",
+  "auditedAt": "15 set 2026",
+  "progressUpdatedAt": "15 set 2026",
+  "items": [
+    {
+      "id": "etapa-1-vitrine-admin",
+      "title": "Fechar a vitrine: só admin publica, despublica, concede grants e apaga no catálogo",
+      "origin": "secao-7",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "etapa-2-lgpd-innodb",
+      "title": "Migration ConsentimentoLgpd para InnoDB + FK no banco live",
+      "origin": "secao-7",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "etapa-3-operar-ffmpeg-cron",
+      "title": "Operar FFmpeg, CRON_SECRET, tarefa Windows e chave PIX real",
+      "origin": "secao-7",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "etapa-4-adiar-curso-gateway",
+      "title": "Adiar Course/Stripe/CDN até trilha didática, volume de PIX ou saturação do player",
+      "origin": "secao-7",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "rec-1-confirmar-vitrine",
+      "title": "Confirmar se o catálogo fica só do admin e o que fazer com o vídeo 22",
+      "origin": "secao-9",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "rec-2-admin-patch-catalog",
+      "title": "Exigir admin em PATCH/DELETE/grants de /api/catalog/[id] e esconder ações na UI",
+      "origin": "secao-9",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "rec-3-lgpd-migration",
+      "title": "Criar migration ConsentimentoLgpd InnoDB + FK (padrão RateLimitBucket)",
+      "origin": "secao-9",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "rec-4-admin-videos-oficial",
+      "title": "Usar /admin/videos como caminho oficial das aulas autorais",
+      "origin": "secao-9",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    },
+    {
+      "id": "rec-5-nao-mexer-stack-gateway",
+      "title": "Não mexer em Prisma 6, NextAuth v5, Stripe nem Course até as dúvidas da seção 8",
+      "origin": "secao-9",
+      "status": "pendente",
+      "evidence": "",
+      "updatedAt": null
+    }
+  ]
+}
+  </script>
+  <script>
+    (function () {
+      var el = document.getElementById("audit-tracker");
+      var data = JSON.parse(el.textContent);
+      var items = data.items || [];
+      var feito = items.filter(function (i) { return i.status === "feito"; });
+      var pendente = items.filter(function (i) { return i.status !== "feito"; });
+      document.getElementById("count-total").textContent = String(items.length);
+      document.getElementById("count-feito").textContent = String(feito.length);
+      document.getElementById("count-pendente").textContent = String(pendente.length);
+      var audited = document.getElementById("audited-at");
+      var updated = document.getElementById("progress-updated-at");
+      if (data.auditedAt) audited.textContent = data.auditedAt;
+      if (data.progressUpdatedAt) updated.textContent = data.progressUpdatedAt;
+      function fill(listId, rows, emptyText) {
+        var ul = document.getElementById(listId);
+        ul.innerHTML = "";
+        if (!rows.length) {
+          var empty = document.createElement("li");
+          empty.className = "empty";
+          empty.textContent = emptyText;
+          ul.appendChild(empty);
+          return;
+        }
+        rows.forEach(function (item) {
+          var li = document.createElement("li");
+          var badge = document.createElement("span");
+          badge.className = "badge " + (item.status === "feito" ? "feito" : "pendente");
+          badge.textContent = item.status === "feito" ? "feito" : "pendente";
+          li.appendChild(badge);
+          li.appendChild(document.createTextNode(" " + item.title));
+          if (item.evidence) {
+            var ev = document.createElement("div");
+            ev.className = "evidence";
+            ev.textContent = item.evidence;
+            li.appendChild(ev);
+          }
+          ul.appendChild(li);
+        });
+      }
+      fill("list-feito", feito, "Nada marcado como implementado ainda.");
+      fill("list-pendente", pendente, "Nada pendente.");
+    })();
+  </script>
+</body>
+</html>

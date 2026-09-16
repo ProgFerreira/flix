@@ -38,6 +38,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [{ protocol: "https", hostname: "img.youtube.com" }],
+    // Thumbnails do YouTube são estáveis por videoId — 7 dias no otimizador.
+    minimumCacheTTL: 60 * 60 * 24 * 7,
     // O placeholder de vídeo autoral (public/video-placeholder.svg) é SVG —
     // o next/image recusa otimizar SVG por padrão. É um asset nosso, não
     // upload de usuário, então liberar aqui é seguro; o CSP isolado abaixo
@@ -47,7 +49,13 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }]
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        source: "/video-placeholder.svg",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ]
   },
 }
 

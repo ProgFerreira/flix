@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils"
+import { getYouTubeThumbnail } from "@/lib/utils"
 import { requireUserId } from "@/lib/session"
+import { isAllowedYouTubeUrl } from "@/lib/youtube-url"
+import { ownedCategoryIds } from "@/lib/categories"
+import { claimVideoSlot, QuotaExceededError, checkVideoQuota } from "@/lib/plan-quota"
 
 const schema = z.object({
   url: z.string().url(),
@@ -31,7 +34,12 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const { url, categoryIds } = parsed.data
+  const { url } = parsed.data
+  if (!isAllowedYouTubeUrl(url)) {
+    return NextResponse.json({ error: "Use uma URL de playlist do YouTube" }, { status: 400 })
+  }
+
+  const categoryIds = await ownedCategoryIds(userId, parsed.data.categoryIds)
 
   const playlistRes = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
@@ -49,9 +57,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum vídeo encontrado na playlist" }, { status: 400 })
   }
 
-  const results: { id: number; title: string }[] = []
+  const quota = await checkVideoQuota(userId, 0)
+  const slots = quota.remaining
+  if (Number.isFinite(slots) && slots <= 0) {
+    return NextResponse.json({ error: quota.error ?? "Limite do plano atingido." }, { status: 403 })
+  }
 
-  for (const videoId of uniqueIds.slice(0, 50)) {
+  const results: { id: number; title: string }[] = []
+  const cap = Number.isFinite(slots) ? Math.min(50, slots) : 50
+
+  for (const videoId of uniqueIds.slice(0, cap)) {
     const existing = await prisma.video.findFirst({ where: { videoId, userId } })
     if (existing) continue
 
@@ -61,20 +76,25 @@ export async function POST(req: NextRequest) {
     const channelName = meta?.author_name
     const thumbnail = getYouTubeThumbnail(videoId)
 
-    const video = await prisma.video.create({
-      data: {
-        userId,
-        url: videoUrl,
-        videoId,
-        title,
-        thumbnail,
-        channelName,
-        videoCategories: categoryIds?.length
-          ? { create: categoryIds.map((cid) => ({ categoryId: cid })) }
-          : undefined,
-      },
-    })
-    results.push({ id: video.id, title: video.title })
+    try {
+      const video = await claimVideoSlot(userId, (tx) => tx.video.create({
+        data: {
+          userId,
+          url: videoUrl,
+          videoId,
+          title,
+          thumbnail,
+          channelName,
+          videoCategories: categoryIds.length
+            ? { create: categoryIds.map((cid) => ({ categoryId: cid })) }
+            : undefined,
+        },
+      }))
+      results.push({ id: video.id, title: video.title })
+    } catch (err) {
+      if (err instanceof QuotaExceededError) break
+      throw err
+    }
   }
 
   return NextResponse.json({ imported: results.length, videos: results })

@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import "./css/app.css"
+import "./css/ux.css"
 import { Providers } from "./providers"
 
 export const metadata: Metadata = {
   title: "GEFlix — Gestão de Vídeos",
-  description: "Salve e organize seus vídeos favoritos do YouTube",
+  description: "Organize seus vídeos favoritos, compartilhe coleções e descubra conteúdos exclusivos. Comece gratuitamente.",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

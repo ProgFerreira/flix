@@ -1,23 +1,44 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireAdmin } from "@/lib/session"
+import { requireAdmin, computeSubscriptionStatus } from "@/lib/session"
+import { parsePositiveInt } from "@/lib/admin-users"
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
 
   const { userId } = await params
+  const id = parsePositiveInt(userId)
+  if (!id) return NextResponse.json({ error: "Usuário inválido" }, { status: 400 })
 
-  const [payments, user] = await Promise.all([
-    prisma.planPayment.findMany({
-      where: { userId: Number(userId) },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.user.findUnique({
-      where: { id: Number(userId) },
-      select: { id: true, name: true, email: true, plan: true, _count: { select: { videos: true } } },
-    }),
-  ])
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      plan: true,
+      status: true,
+      createdAt: true,
+      emailVerifiedAt: true,
+      _count: { select: { videos: true, payments: true } },
+      subscription: true,
+    },
+  })
+  if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
 
-  return NextResponse.json({ payments, user })
+  const payments = await prisma.planPayment.findMany({
+    where: { userId: id },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const { subscription, ...rest } = user
+  return NextResponse.json({
+    user: rest,
+    subscription: subscription
+      ? { ...subscription, status: computeSubscriptionStatus(new Date(), subscription) }
+      : null,
+    payments,
+  })
 }

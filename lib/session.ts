@@ -3,13 +3,18 @@ import { authOptions } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-// A sessão é JWT (fica no navegador por até 30 dias) e `role`/`status` só são
+// A sessão é JWT (fica no navegador por até 24h) e `role`/`status` só são
 // gravados nela no momento do login. Sem essa checagem no banco, bloquear ou
 // excluir alguém não corta o acesso na hora — a pessoa segue autenticando com
 // os dados antigos até o token expirar. Cada chamada aqui é um SELECT pela
 // chave primária, barato, e é o portão real de toda rota de API.
 async function currentDbUser(userId: number) {
-  return prisma.user.findUnique({ where: { id: userId }, select: { status: true, role: true } })
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { status: true, role: true, deletadoEm: true },
+  })
+  if (!user || user.deletadoEm) return null
+  return user
 }
 
 export async function requireUserId(): Promise<{ userId: number } | NextResponse> {
@@ -55,17 +60,10 @@ export async function requireAdmin(): Promise<{ userId: number } | NextResponse>
   return { userId }
 }
 
-export const PLAN_LIMITS: Record<string, number> = {
-  free: 20,
-  premium: 100,
-  pro: Infinity,
-}
+export { PLAN_LIMITS } from "@/lib/plan-config"
 
 // [plano][cobrança] = valor
-export const PLAN_PRICES: Record<string, Record<string, number>> = {
-  premium: { monthly: 10.00, annual: 96.00 },
-  pro:     { monthly: 17.90, annual: 171.84 },
-}
+export { PLAN_PRICES } from "@/lib/plan-config"
 
 export function calcNextBilling(billing: string): Date {
   const d = new Date()
@@ -92,16 +90,19 @@ export type CatalogVideoAccess = {
   published: boolean
   requiredPlan: string
   requesterPlan: string
+  /** Exceção: usuário na lista extra do vídeo (não abre rascunho). */
+  isGranted?: boolean
 }
 
 /**
  * Decisão de acesso a um vídeo do catálogo autoral: dono e admin sempre
  * podem assistir (mesmo despublicado, pra pré-visualizar); qualquer outra
- * pessoa só se o vídeo estiver publicado e o plano dela cobrir o requisito.
+ * pessoa só se o vídeo estiver publicado e o plano dela cobrir o requisito
+ * — ou se estiver na lista extra (presente / cliente).
  */
 export function canAccessCatalogVideo(v: CatalogVideoAccess): boolean {
   if (v.isOwner || v.isAdmin) return true
-  return v.published && hasPlanAccess(v.requesterPlan, v.requiredPlan)
+  return v.published && (hasPlanAccess(v.requesterPlan, v.requiredPlan) || Boolean(v.isGranted))
 }
 
 // ── Expiração de assinatura (cobrança é manual, sem gateway) ────────────
@@ -148,12 +149,14 @@ export async function syncSubscriptionStatus(userId: number) {
   const nextStatus = computeSubscriptionStatus(now, sub)
   if (nextStatus === sub.status) return sub
 
-  const updated = await prisma.subscription.update({
-    where: { userId },
-    data: { status: nextStatus },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.subscription.update({
+      where: { userId },
+      data: { status: nextStatus as "active" | "overdue" | "cancelled" | "expired" },
+    })
+    if (nextStatus === "expired") {
+      await tx.user.update({ where: { id: userId }, data: { plan: "free" } })
+    }
+    return updated
   })
-  if (nextStatus === "expired") {
-    await prisma.user.update({ where: { id: userId }, data: { plan: "free" } })
-  }
-  return updated
 }

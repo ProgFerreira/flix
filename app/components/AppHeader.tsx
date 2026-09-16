@@ -1,63 +1,126 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { BarChart2, History, LogOut, CreditCard, ShieldCheck, Layers, Clapperboard, Film } from "lucide-react"
+import { BarChart2, History, LogOut, CreditCard, Layers, Clapperboard, Film, FolderOpen, UserRound, Menu, X, Users, DollarSign, LayoutDashboard, ClipboardList, ScrollText, BookOpen } from "lucide-react"
+import { loginHref } from "@/lib/auth-redirect"
 import { Logo } from "@/app/components/Logo"
+
+export function VisitorHeader() {
+  return (
+    <>
+      <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
+      <header className="app-header">
+        <div className="app-header-inner">
+          <Link href="/catalogo" className="logo-link">
+            <Logo size={22} />
+          </Link>
+          <div className="app-header-visitor">
+            <Link href="/catalogo" className="btn btn-ghost">Catálogo</Link>
+            <Link href={loginHref("/catalogo")} className="btn btn-ghost">Entrar</Link>
+            <Link href={loginHref("/catalogo", true)} className="btn btn-primary">Criar conta</Link>
+          </div>
+        </div>
+      </header>
+    </>
+  )
+}
 
 export function AppHeader() {
   const { data: session } = useSession()
   const path = usePathname()
+  const [open, setOpen] = useState(false)
+  const role = session?.user?.role
 
   const navLink = (href: string, label: string, icon: React.ReactNode) => {
-    const active = path === href
+    const active = href === "/admin" ? path.startsWith("/admin") : path === href
     return (
-      <Link href={href} style={{
-        display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
-        borderRadius: 6, textDecoration: "none", fontSize: 13, fontWeight: active ? 600 : 400,
-        color: active ? "#1E40AF" : "#64748B",
-        background: active ? "#EFF6FF" : "transparent",
-        border: `1px solid ${active ? "#BFDBFE" : "transparent"}`,
-        transition: "all 0.15s",
-      }}>
+      <Link href={href} aria-current={active ? "page" : undefined} className={`app-nav-link${active ? " is-active" : ""}`} onClick={() => setOpen(false)}>
+        {icon} {label}
+      </Link>
+    )
+  }
+
+  const adminLink = (href: string, label: string, icon: React.ReactNode) => {
+    const active = href === "/admin" ? path === "/admin" : path === href || path.startsWith(`${href}/`)
+    return (
+      <Link href={href} aria-current={active ? "page" : undefined} className={`app-nav-link${active ? " is-active" : ""}`} onClick={() => setOpen(false)}>
         {icon} {label}
       </Link>
     )
   }
 
   return (
-    <header style={{ background: "#fff", borderBottom: "1px solid #E2E8F0", position: "sticky", top: 0, zIndex: 100 }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", height: 58, display: "flex", alignItems: "center", gap: 16 }}>
-        <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
+    <>
+      <a href="#conteudo" className="skip-link">Pular para o conteúdo</a>
+      <header className={`app-header${open ? " is-open" : ""}`}>
+      <div className="app-header-inner">
+        <Link href="/" className="logo-link">
           <Logo size={22} />
         </Link>
 
-        <div style={{ width: 1, height: 20, background: "#E2E8F0", flexShrink: 0 }} />
+        <div className="app-header-rule" />
 
-        <nav style={{ display: "flex", gap: 4 }}>
-          {navLink("/catalogo", "Catálogo", <Clapperboard size={14} />)}
-          {navLink("/historico", "Histórico", <History size={14} />)}
-          {navLink("/estatisticas", "Estatísticas", <BarChart2 size={14} />)}
+        <button
+          type="button"
+          className="app-nav-toggle"
+          aria-label={open ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={open}
+          aria-controls="app-nav"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? <X size={16} /> : <Menu size={16} />}
+        </button>
+
+        <nav className="app-nav" id="app-nav" aria-label="Principal">
+          {navLink("/", "Minha biblioteca", <FolderOpen size={14} />)}
+          {navLink("/catalogo", "Explorar catálogo", <Clapperboard size={14} />)}
+          {!path.startsWith("/admin") && navLink("/historico", "Histórico", <History size={14} />)}
+          {!path.startsWith("/admin") && navLink("/estatisticas", "Estatísticas", <BarChart2 size={14} />)}
           {navLink("/plano", "Meu Plano", <CreditCard size={14} />)}
-          {(session?.user as { role?: string })?.role === "admin" && navLink("/admin", "Admin", <ShieldCheck size={14} />)}
-          {(session?.user as { role?: string })?.role === "admin" && navLink("/admin/assinaturas", "Assinaturas", <Layers size={14} />)}
-          {(session?.user as { role?: string })?.role === "admin" && navLink("/admin/videos", "Vídeos Autorais", <Film size={14} />)}
+          {role === "admin" && !path.startsWith("/admin") && navLink("/admin", "Admin", <LayoutDashboard size={14} />)}
         </nav>
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="app-header-actions">
           {session?.user?.name && (
-            <span style={{ fontSize: 13, color: "#64748B" }}>
-              Olá, <strong style={{ color: "#0F172A" }}>{session.user.name.split(" ")[0]}</strong>
+            <span className="app-header-hello">
+              Olá, <strong>{session.user.name.split(" ")[0]}</strong>
             </span>
           )}
+          {session && navLink("/conta", "Conta", <UserRound size={14} />)}
           {session && (
-            <button onClick={() => signOut({ callbackUrl: "/login" })} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 6, background: "none", border: "1px solid #E2E8F0", cursor: "pointer", color: "#64748B", fontSize: 13 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => signOut({ callbackUrl: "/login" })}>
               <LogOut size={13} /> Sair
             </button>
           )}
         </div>
       </div>
+      {role === "admin" && path.startsWith("/admin") && (
+        <nav className="admin-subnav" aria-label="Administração">
+          <div className="admin-subnav-inner">
+            {adminLink("/admin", "Painel", <LayoutDashboard size={14} />)}
+            {adminLink("/admin/clientes", "Clientes", <Users size={14} />)}
+            {adminLink("/admin/pagamentos", "Pagamentos", <DollarSign size={14} />)}
+            {adminLink("/admin/assinaturas", "Assinaturas", <Layers size={14} />)}
+            {adminLink("/admin/solicitacoes", "Solicitações", <ClipboardList size={14} />)}
+            {adminLink("/admin/auditoria", "Auditoria", <ScrollText size={14} />)}
+            {adminLink("/admin/videos", "Vídeos", <Film size={14} />)}
+            {adminLink("/admin/cursos", "Cursos", <BookOpen size={14} />)}
+          </div>
+        </nav>
+      )}
     </header>
+      {session && session.user.emailVerified === false && (
+        <div className="banner verify-banner" role="status">
+          <p>
+            Confirme seu e-mail pra manter a conta segura.
+            {" "}
+            <Link href="/conta" className="link">Reenviar confirmação</Link>
+          </p>
+        </div>
+      )}
+    </>
   )
 }

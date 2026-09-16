@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { claimVideoSlot, QuotaExceededError } from "@/lib/plan-quota"
 
 const categorySchema = z.object({ name: z.string(), color: z.string().default("#e85d04") })
 const videoSchema = z.object({
@@ -45,15 +46,22 @@ export async function POST(req: NextRequest) {
 
     const categoryIds = (v.categories ?? []).map((c) => catMap.get(c.name)).filter((id): id is number => id !== undefined)
 
-    await prisma.video.create({
-      data: {
-        userId, url: v.url, videoId: v.videoId, title: v.title, thumbnail: v.thumbnail,
-        duration: v.duration ?? undefined, channelName: v.channelName ?? undefined,
-        watched: v.watched, favorite: v.favorite, notes: v.notes ?? undefined,
-        videoCategories: categoryIds.length ? { create: categoryIds.map((cid) => ({ categoryId: cid })) } : undefined,
-      },
-    })
-    imported++
+    try {
+      await claimVideoSlot(userId, (tx) => tx.video.create({
+        data: {
+          userId, url: v.url, videoId: v.videoId, title: v.title, thumbnail: v.thumbnail,
+          duration: v.duration ?? undefined, channelName: v.channelName ?? undefined,
+          watched: v.watched, favorite: v.favorite, notes: v.notes ?? undefined,
+          videoCategories: categoryIds.length ? { create: categoryIds.map((cid) => ({ categoryId: cid })) } : undefined,
+        },
+      }))
+      imported++
+    } catch (err) {
+      if (err instanceof QuotaExceededError) {
+        return NextResponse.json({ imported, skipped, error: err.message }, { status: imported > 0 ? 200 : 403 })
+      }
+      throw err
+    }
   }
 
   return NextResponse.json({ imported, skipped })

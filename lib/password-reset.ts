@@ -7,12 +7,12 @@ export function hashResetToken(token: string): string {
 }
 
 /** Token cru vai por e-mail; só o hash é gravado no banco. */
-export function generateResetToken(now = new Date()): { token: string; tokenHash: string; expiresAt: Date } {
+export function generateResetToken(now = new Date(), ttlMs = RESET_TOKEN_TTL_MS): { token: string; tokenHash: string; expiresAt: Date } {
   const token = crypto.randomBytes(32).toString("hex")
   return {
     token,
     tokenHash: hashResetToken(token),
-    expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_MS),
+    expiresAt: new Date(now.getTime() + ttlMs),
   }
 }
 

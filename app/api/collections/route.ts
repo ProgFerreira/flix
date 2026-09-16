@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { collectionForMember } from "@/lib/collection-share"
 
-const schema = z.object({ name: z.string().min(1) })
+const schema = z.object({ name: z.string().trim().min(1).max(120) })
+
+const collectionInclude = {
+  owner: { select: { id: true, email: true, name: true } },
+  members: { include: { user: { select: { id: true, email: true, name: true } } } },
+  _count: { select: { videos: true } },
+} as const
 
 export async function GET() {
   const auth = await requireUserId()
@@ -12,18 +19,11 @@ export async function GET() {
 
   const collections = await prisma.collection.findMany({
     where: { members: { some: { userId } } },
-    include: {
-      owner: { select: { id: true, email: true, name: true } },
-      members: { include: { user: { select: { id: true, email: true, name: true } } } },
-      _count: { select: { videos: true } },
-    },
+    include: collectionInclude,
     orderBy: { createdAt: "desc" },
   })
 
-  return NextResponse.json(collections.map(c => ({
-    ...c,
-    myRole: c.members.find(m => m.userId === userId)?.role ?? "viewer",
-  })))
+  return NextResponse.json(collections.map((c) => collectionForMember(c, userId)))
 }
 
 export async function POST(req: NextRequest) {
@@ -41,12 +41,8 @@ export async function POST(req: NextRequest) {
       ownerId: userId,
       members: { create: { userId, role: "owner" } },
     },
-    include: {
-      owner: { select: { id: true, email: true, name: true } },
-      members: { include: { user: { select: { id: true, email: true, name: true } } } },
-      _count: { select: { videos: true } },
-    },
+    include: collectionInclude,
   })
 
-  return NextResponse.json({ ...collection, myRole: "owner" })
+  return NextResponse.json(collectionForMember(collection, userId))
 }

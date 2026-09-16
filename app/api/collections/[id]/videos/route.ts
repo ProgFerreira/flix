@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
 import { handlePrismaError } from "@/lib/api-error"
+import { serializeVideo } from "@/lib/serialize-video"
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireUserId()
@@ -20,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: { video: { include: { videoCategories: { include: { category: true } }, user: { select: { id: true, email: true, name: true } } } } },
     orderBy: { addedAt: "desc" },
   })
-  return NextResponse.json(videos.map(cv => cv.video))
+  return NextResponse.json(videos.map(cv => serializeVideo(cv.video)))
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,6 +38,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json()
   const parsed = z.object({ videoId: z.number() }).safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+
+  const video = await prisma.video.findUnique({
+    where: { id: parsed.data.videoId },
+    select: { userId: true },
+  })
+  if (!video || video.userId !== userId) {
+    return NextResponse.json({ error: "Só é possível adicionar vídeos da sua biblioteca" }, { status: 403 })
+  }
 
   const cv = await prisma.collectionVideo.upsert({
     where: { collectionId_videoId: { collectionId: Number(id), videoId: parsed.data.videoId } },

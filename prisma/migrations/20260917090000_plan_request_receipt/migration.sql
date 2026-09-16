@@ -1,0 +1,1 @@
+ALTER TABLE `PlanChangeRequest` ADD COLUMN `receiptPath` VARCHAR(191) NULL, ADD COLUMN `receiptMimeType` VARCHAR(191) NULL, ADD COLUMN `receiptSize` INTEGER NULL;

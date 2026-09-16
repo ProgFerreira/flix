@@ -1,9 +1,15 @@
+import { after } from "next/server"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import fs from "fs/promises"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/session"
-import { validateUpload, generateStoredFilename, resolveStoredFilePath, ensureStorageDir } from "@/lib/video-storage"
+import { validateUpload, generateStoredFilename, detectVideoMime, PLACEHOLDER_THUMB } from "@/lib/video-storage"
+import { streamMultipartVideo, moveUploadToStorage, removeStoredFile, UploadError } from "@/lib/upload-stream"
+import { ownedCategoryIds } from "@/lib/categories"
+import { GrantLimitError, parseViewerIdsField, replaceVideoGrants } from "@/lib/video-grants"
+import { enqueueVideoProcessing } from "@/lib/video-process"
+import { logAdminAction } from "@/lib/audit"
+import { serializeVideo } from "@/lib/serialize-video"
 
 export const runtime = "nodejs"
 
@@ -20,61 +26,106 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
 
-  const form = await req.formData()
-  const file = form.get("file")
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Arquivo de vídeo obrigatório" }, { status: 400 })
+  let streamed
+  try {
+    streamed = await streamMultipartVideo(req)
+  } catch (err) {
+    if (err instanceof UploadError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
+    throw err
   }
 
+  const { fields, tempPath, size, header } = streamed
+
   const parsed = metaSchema.safeParse({
-    title: form.get("title"),
-    channelName: form.get("channelName") ?? undefined,
-    notes: form.get("notes") ?? undefined,
-    requiredPlan: form.get("requiredPlan") ?? "free",
-    published: form.get("published") ?? "false",
+    title: fields.title,
+    channelName: fields.channelName,
+    notes: fields.notes,
+    requiredPlan: fields.requiredPlan ?? "free",
+    published: fields.published ?? "false",
   })
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) {
+    await removeStoredFile(tempPath)
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  }
 
   let categoryIds: number[] = []
-  const categoryIdsRaw = form.get("categoryIds")
-  if (typeof categoryIdsRaw === "string" && categoryIdsRaw.length > 0) {
+  if (fields.categoryIds) {
     try {
-      const arr = JSON.parse(categoryIdsRaw)
+      const arr = JSON.parse(fields.categoryIds)
       if (Array.isArray(arr) && arr.every((v) => typeof v === "number")) categoryIds = arr
     } catch {
+      await removeStoredFile(tempPath)
       return NextResponse.json({ error: "categoryIds inválido" }, { status: 400 })
     }
   }
+  categoryIds = await ownedCategoryIds(userId, categoryIds)
 
-  const validation = validateUpload({ mimeType: file.type, size: file.size })
-  if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: 400 })
+  const viewers = parseViewerIdsField(fields.viewerIds)
+  if (!viewers.ok) {
+    await removeStoredFile(tempPath)
+    return NextResponse.json({ error: viewers.error }, { status: 400 })
+  }
+  const viewerIds = viewers.ids ?? []
 
-  ensureStorageDir()
-  const filename = generateStoredFilename(file.type)
-  const absolutePath = resolveStoredFilePath(filename)
-  const buffer = Buffer.from(await file.arrayBuffer())
-  await fs.writeFile(absolutePath, buffer)
+  const detectedMime = detectVideoMime(header)
+  if (!detectedMime) {
+    await removeStoredFile(tempPath)
+    return NextResponse.json(
+      { error: "O arquivo não parece um vídeo MP4, WebM ou MOV. Confira o formato (não vale só a extensão)." },
+      { status: 400 },
+    )
+  }
+  const validation = validateUpload({ mimeType: detectedMime, size })
+  if (!validation.ok) {
+    await removeStoredFile(tempPath)
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
 
+  const filename = generateStoredFilename(detectedMime)
+  const absolutePath = await moveUploadToStorage(tempPath, filename)
   const { title, channelName, notes, requiredPlan, published } = parsed.data
 
-  const video = await prisma.video.create({
-    data: {
-      userId,
-      title,
-      channelName,
-      notes,
-      thumbnail: "/video-placeholder.svg",
-      source: "upload",
-      filePath: filename,
-      mimeType: file.type,
-      fileSize: file.size,
-      status: "ready",
-      published: published === "true",
-      requiredPlan,
-      videoCategories: categoryIds.length ? { create: categoryIds.map((cid) => ({ categoryId: cid })) } : undefined,
-    },
-    include: { videoCategories: { include: { category: true } } },
-  })
-
-  return NextResponse.json(video)
+  try {
+    const video = await prisma.$transaction(async (tx) => {
+      const created = await tx.video.create({
+        data: {
+          userId,
+          title,
+          channelName,
+          notes,
+          thumbnail: PLACEHOLDER_THUMB,
+          source: "upload",
+          filePath: filename,
+          mimeType: detectedMime,
+          fileSize: BigInt(size),
+          status: "processing",
+          published: published === "true",
+          requiredPlan,
+          videoCategories: categoryIds.length ? { create: categoryIds.map((cid) => ({ categoryId: cid })) } : undefined,
+        },
+        include: { videoCategories: { include: { category: true } } },
+      })
+      if (viewerIds.length) {
+        await replaceVideoGrants(tx, { videoId: created.id, userIds: viewerIds, grantedBy: userId, ownerId: userId })
+      }
+      return created
+    })
+    after(() => enqueueVideoProcessing(video.id))
+    await logAdminAction({
+      adminId: userId,
+      action: "video.upload",
+      targetType: "video",
+      targetId: video.id,
+      meta: { title: video.title },
+    })
+    return NextResponse.json(serializeVideo(video))
+  } catch (err) {
+    await removeStoredFile(absolutePath)
+    if (err instanceof GrantLimitError) {
+      return NextResponse.json({ error: err.message }, { status: 400 })
+    }
+    throw err
+  }
 }

@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { hashResetToken, isResetTokenValid } from "@/lib/password-reset"
-
-const schema = z.object({
-  token: z.string().min(1),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
-})
+import { resetPasswordSchema } from "@/validators/auth"
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const parsed = schema.safeParse(body)
+  const parsed = resetPasswordSchema.safeParse(body)
   if (!parsed.success) {
     const message = parsed.error.issues[0]?.message ?? "Dados inválidos"
     return NextResponse.json({ error: message }, { status: 400 })

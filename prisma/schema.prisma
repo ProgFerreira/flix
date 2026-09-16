@@ -7,16 +7,91 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  user
+  admin
+}
+
+enum UserPlan {
+  free
+  premium
+  pro
+}
+
+enum UserStatus {
+  active
+  blocked
+}
+
+enum BillingCycle {
+  monthly
+  annual
+}
+
+enum SubscriptionStatus {
+  active
+  overdue
+  cancelled
+  expired
+}
+
+enum PaymentMethod {
+  pix
+  card
+  boleto
+  manual
+}
+
+enum VideoSource {
+  youtube
+  upload
+}
+
+enum VideoStatus {
+  processing
+  ready
+  error
+}
+
+enum SharePermission {
+  view
+  edit
+}
+
+enum CollectionRole {
+  owner
+  editor
+  viewer
+}
+
+enum PlanChangeRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum BillingReminderType {
+  upcoming
+  overdue
+}
+
+// Uma conta = um espectador. Não há perfis (Netflix-style) de propósito:
+// o produto é clube de criador único, não assinatura familiar compartilhada.
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   name      String?
+  phone     String?  @db.VarChar(20)
   password  String
   createdAt DateTime @default(now())
+  emailVerifiedAt DateTime?
 
-  role      String   @default("user")    // "user" | "admin"
-  plan      String   @default("free")    // "free" | "premium" | "pro"
-  status    String   @default("active")  // "active" | "blocked"
+  role      UserRole   @default(user)
+  plan      UserPlan   @default(free)
+  status    UserStatus @default(active)
+  deletadoEm DateTime?
+  criadoPorId Int?
 
   videos            Video[]
   categories        Category[]
@@ -26,9 +101,38 @@ model User {
   sharesReceived    VideoShare[]       @relation("ShareTo")
   payments          PlanPayment[]
   subscription      Subscription?
+  planChangeRequests PlanChangeRequest[]
+  reviewedPlanChanges PlanChangeRequest[] @relation("PlanChangeReviewer")
   favorites         Favorite[]
   watchProgress     WatchProgress[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  auditLogs           AdminAuditLog[]
+  accessGrantsReceived VideoAccessGrant[] @relation("GrantTo")
+  accessGrantsGiven    VideoAccessGrant[] @relation("GrantBy")
+  consentimentos       ConsentimentoLgpd[]
+  criadoPor            User?  @relation("UserCreatedBy", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  contasCriadas        User[] @relation("UserCreatedBy")
+  pagamentosRegistrados PlanPayment[] @relation("PaymentCreatedBy")
+
+  @@index([deletadoEm])
+  @@index([criadoPorId])
+}
+
+// Token de confirmação de e-mail. Mesma ideia do reset de senha: o token cru
+// vai no link; o banco guarda só o SHA-256. Contas antigas recebem
+// emailVerifiedAt = createdAt na migration pra não ficarem trancadas.
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 // Token de recuperação de senha. Guarda só o hash (SHA-256) do token que vai
@@ -43,6 +147,8 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 // Favorito por usuário — tabela própria porque Video.favorite é por linha do
@@ -77,35 +183,105 @@ model WatchProgress {
 }
 
 model Subscription {
-  id              Int       @id @default(autoincrement())
-  userId          Int       @unique
-  plan            String    // "premium" | "pro"
-  billing         String    // "monthly" | "annual"
-  amount          Float     // valor cobrado no período
-  startDate       DateTime  @default(now())
+  id              Int                @id @default(autoincrement())
+  userId          Int                @unique
+  plan            UserPlan
+  billing         BillingCycle
+  amount          Decimal            @db.Decimal(10, 2)
+  startDate       DateTime           @default(now())
   nextBillingDate DateTime
-  status          String    @default("active") // "active" | "overdue" | "cancelled" | "expired"
-  cancelledAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  status          SubscriptionStatus @default(active)
+  cancelledAt      DateTime?
+  lastReminderType BillingReminderType?
+  lastReminderAt   DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments PlanPayment[]
+
+  @@index([status, nextBillingDate])
+}
+
+// Pedido de troca de plano feito pelo cliente. Só vira plano ativo depois
+// que a gestão aprova (e, em upgrade pago, registra o pagamento).
+model PlanChangeRequest {
+  id         Int                     @id @default(autoincrement())
+  userId     Int
+  fromPlan   UserPlan
+  toPlan     UserPlan
+  billing    BillingCycle            @default(monthly)
+  amount     Decimal                 @db.Decimal(10, 2)
+  note       String?
+  status     PlanChangeRequestStatus @default(pending)
+  reviewedBy Int?
+  reviewedAt DateTime?
+  receiptPath String?
+  receiptMimeType String?
+  receiptSize Int?
+  reviewNote String?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User? @relation("PlanChangeReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, status])
 }
 
 model PlanPayment {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  subscriptionId Int?
-  plan           String   // "premium" | "pro"
-  billing        String   @default("monthly") // "monthly" | "annual"
-  amount         Float
-  method         String   @default("manual")  // "pix" | "card" | "boleto" | "manual"
-  note           String?
-  createdAt      DateTime @default(now())
+  id              Int            @id @default(autoincrement())
+  userId          Int
+  subscriptionId  Int?
+  plan            UserPlan
+  billing         BillingCycle   @default(monthly)
+  amount          Decimal        @db.Decimal(10, 2)
+  method          PaymentMethod  @default(manual)
+  note            String?
+  idempotencyKey  String?        @unique
+  receiptPath     String?
+  receiptMimeType String?
+  receiptSize     Int?
+  createdAt       DateTime       @default(now())
+  criadoPorId     Int?
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  criadoPor    User?         @relation("PaymentCreatedBy", fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+// Aceite de termos/privacidade (LGPD): data, IP e versão do documento.
+model ConsentimentoLgpd {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  tipo     String
+  aceito   Boolean
+  versao   String
+  ip       String?
+  criadoEm DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, tipo])
+}
+
+model AdminAuditLog {
+  id         Int      @id @default(autoincrement())
+  adminId    Int?
+  action     String
+  targetType String
+  targetId   Int?
+  meta       String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  admin User? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([adminId, createdAt])
+  @@index([targetType, targetId])
 }
 
 model Category {
@@ -129,21 +305,29 @@ model Video {
   thumbnail       String
   duration        String?
   channelName     String?
-  watched         Boolean         @default(false) // biblioteca pessoal (source="youtube") só — catálogo usa WatchProgress
+  watched         Boolean         @default(false)
   watchedAt       DateTime?
-  favorite        Boolean         @default(false) // biblioteca pessoal (source="youtube") só — catálogo usa Favorite
+  favorite        Boolean         @default(false)
   notes           String?         @db.Text
   sortOrder       Int             @default(0)
   createdAt       DateTime        @default(now())
 
-  // Vídeo autoral hospedado no próprio servidor (source = "upload")
-  source          String          @default("youtube") // "youtube" | "upload"
-  filePath        String?         // caminho relativo em storage/videos, só quando source = "upload"
+  source          VideoSource     @default(youtube)
+  filePath        String?
   mimeType        String?
-  fileSize        Int?
-  status          String          @default("ready")   // "processing" | "ready" | "error"
-  published       Boolean         @default(false)     // true = aparece no catálogo de assinantes
-  requiredPlan    String          @default("free")     // "free" | "premium" | "pro" — nível mínimo pra assistir
+  fileSize        BigInt?
+  status          VideoStatus     @default(ready)
+  published       Boolean         @default(false)
+  requiredPlan    UserPlan        @default(free)
+
+  // Derivados do FFmpeg (só source=upload). O original fica em filePath;
+  // playbackPath é MP4 H.264 quando o arquivo enviado não toca no browser
+  // (ex.: .mov); previewPath é a variante ~480p; thumbPath é o JPEG do frame.
+  previewPath           String?
+  playbackPath          String?
+  thumbPath             String?
+  processingStartedAt   DateTime?
+  processError          String?   @db.VarChar(500)
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   videoCategories VideoCategory[]
@@ -151,6 +335,14 @@ model Video {
   collectionVideos CollectionVideo[]
   favoritedBy     Favorite[]
   watchProgress   WatchProgress[]
+  accessGrants    VideoAccessGrant[]
+  courseLesson    CourseLesson?
+
+  @@index([userId, createdAt])
+  @@index([userId, sortOrder])
+  @@index([userId, videoId])
+  @@index([source, published, status])
+  @@index([status, processingStartedAt])
 }
 
 model VideoCategory {
@@ -163,27 +355,46 @@ model VideoCategory {
 }
 
 model VideoShare {
-  id         Int      @id @default(autoincrement())
+  id         Int             @id @default(autoincrement())
   videoId    Int
   fromUserId Int
   toUserId   Int
-  permission String   @default("view")
-  createdAt  DateTime @default(now())
+  permission SharePermission @default(view)
+  createdAt  DateTime        @default(now())
 
   video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  from  User  @relation("ShareFrom", fields: [fromUserId], references: [id])
-  to    User  @relation("ShareTo",   fields: [toUserId],   references: [id])
+  from  User  @relation("ShareFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to    User  @relation("ShareTo",   fields: [toUserId],   onDelete: Cascade, references: [id])
 
   @@unique([videoId, toUserId])
 }
 
-model Collection {
-  id        Int      @id @default(autoincrement())
-  name      String
-  ownerId   Int
+// Exceção de acesso no catálogo: o plano mínimo continua valendo pra todo
+// mundo; esta tabela só libera pessoas específicas (presente, beta, cliente).
+// Não mistura com VideoShare, que é colaboração da biblioteca pessoal.
+model VideoAccessGrant {
+  videoId   Int
+  userId    Int
+  grantedBy Int?
   createdAt DateTime @default(now())
 
-  owner   User               @relation(fields: [ownerId], references: [id])
+  video   Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user    User  @relation("GrantTo", fields: [userId], references: [id], onDelete: Cascade)
+  granter User? @relation("GrantBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+
+  @@id([videoId, userId])
+  @@index([userId])
+}
+
+model Collection {
+  id         Int      @id @default(autoincrement())
+  name       String
+  ownerId    Int
+  createdAt  DateTime @default(now())
+  isPublic   Boolean  @default(false)
+  shareToken String?  @unique @db.VarChar(64)
+
+  owner   User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members CollectionMember[]
   videos  CollectionVideo[]
 }
@@ -191,11 +402,11 @@ model Collection {
 model CollectionMember {
   collectionId Int
   userId       Int
-  role         String   @default("viewer")
-  joinedAt     DateTime @default(now())
+  role         CollectionRole @default(viewer)
+  joinedAt     DateTime       @default(now())
 
   collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id])
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([collectionId, userId])
 }
@@ -210,4 +421,57 @@ model CollectionVideo {
   video      Video      @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   @@id([collectionId, videoId])
+}
+
+// Trilha didática do catálogo. A aula continua sendo Video; o curso só
+// agrupa e ordena. Apagar o curso não apaga o arquivo — só a trilha.
+model Course {
+  id           Int      @id @default(autoincrement())
+  title        String
+  slug         String   @unique
+  description  String?  @db.Text
+  thumbnail    String?  @db.VarChar(500)
+  learnings    String?  @db.Text
+  requiredPlan UserPlan @default(free)
+  published    Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  modules CourseModule[]
+
+  @@index([published, sortOrder])
+}
+
+model CourseModule {
+  id        Int    @id @default(autoincrement())
+  courseId  Int
+  title     String
+  sortOrder Int    @default(0)
+
+  course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons CourseLesson[]
+
+  @@index([courseId, sortOrder])
+}
+
+model CourseLesson {
+  id        Int @id @default(autoincrement())
+  moduleId  Int
+  videoId   Int @unique
+  sortOrder Int @default(0)
+
+  module CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  video  Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId, sortOrder])
+}
+
+// Contador compartilhado entre instâncias e restarts (substitui o Map em memória).
+model RateLimitBucket {
+  chave   String   @id @db.VarChar(191)
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
 }

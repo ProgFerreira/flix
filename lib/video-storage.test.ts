@@ -1,5 +1,38 @@
 import { describe, it, expect } from "vitest"
-import { validateUpload, generateStoredFilename, resolveStoredFilePath, parseRangeHeader, MAX_UPLOAD_BYTES, STORAGE_DIR } from "@/lib/video-storage"
+import { validateUpload, generateStoredFilename, resolveStoredFilePath, parseRangeHeader, detectVideoMime, fileCacheTag, MAX_UPLOAD_BYTES, STORAGE_DIR, pickStreamAsset } from "@/lib/video-storage"
+
+function bytes(...parts: Array<number | string>): Uint8Array {
+  const chunks = parts.map((p) =>
+    typeof p === "string" ? Array.from(p).map((c) => c.charCodeAt(0)) : [p],
+  )
+  return Uint8Array.from(chunks.flat())
+}
+
+describe("detectVideoMime", () => {
+  it("detects MP4 via ftyp/isom", () => {
+    const header = bytes(0, 0, 0, 24, "ftyp", "isom")
+    expect(detectVideoMime(header)).toBe("video/mp4")
+  })
+
+  it("detects QuickTime via ftyp/qt", () => {
+    const header = bytes(0, 0, 0, 20, "ftyp", "qt  ")
+    expect(detectVideoMime(header)).toBe("video/quicktime")
+  })
+
+  it("detects WebM via EBML header", () => {
+    const header = bytes(0x1A, 0x45, 0xDF, 0xA3, 0, 0, 0, 0, 0, 0, 0, 0)
+    expect(detectVideoMime(header)).toBe("video/webm")
+  })
+
+  it("rejects a PDF pretending to be a video", () => {
+    const header = bytes("%PDF-1.4....")
+    expect(detectVideoMime(header)).toBeNull()
+  })
+
+  it("rejects a too-short buffer", () => {
+    expect(detectVideoMime(bytes(0, 0, 0))).toBeNull()
+  })
+})
 
 describe("validateUpload", () => {
   it("accepts a valid mp4 within the size limit", () => {
@@ -54,6 +87,16 @@ describe("resolveStoredFilePath", () => {
   })
 })
 
+describe("fileCacheTag", () => {
+  it("builds a strong etag from size and mtime", () => {
+    expect(fileCacheTag({ size: 100, mtimeMs: 1700000000123 })).toBe('"100-1700000000123"')
+  })
+
+  it("falls back to zero mtime when absent", () => {
+    expect(fileCacheTag({ size: 100 })).toBe('"100-0"')
+  })
+})
+
 describe("parseRangeHeader", () => {
   const fileSize = 1000
 
@@ -88,5 +131,34 @@ describe("parseRangeHeader", () => {
 
   it("rejects an empty range", () => {
     expect(parseRangeHeader("bytes=-", fileSize)).toBeNull()
+  })
+})
+
+describe("pickStreamAsset", () => {
+  const video = {
+    filePath: "orig.mov",
+    previewPath: "low.mp4",
+    playbackPath: "play.mp4",
+    mimeType: "video/quicktime",
+  }
+
+  it("defaults to the 480p variant when it exists", () => {
+    expect(pickStreamAsset(video, null)).toEqual({ filename: "low.mp4", mimeType: "video/mp4" })
+    expect(pickStreamAsset(video, "480")).toEqual({ filename: "low.mp4", mimeType: "video/mp4" })
+  })
+
+  it("serves the original file when quality=source", () => {
+    expect(pickStreamAsset(video, "source")).toEqual({ filename: "orig.mov", mimeType: "video/quicktime" })
+  })
+
+  it("falls back to playback MP4 then original when there is no preview", () => {
+    expect(pickStreamAsset({ ...video, previewPath: null }, null)).toEqual({
+      filename: "play.mp4",
+      mimeType: "video/mp4",
+    })
+    expect(pickStreamAsset({ filePath: "a.mp4", mimeType: "video/mp4" }, null)).toEqual({
+      filename: "a.mp4",
+      mimeType: "video/mp4",
+    })
   })
 })

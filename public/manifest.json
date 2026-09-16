@@ -1,7 +1,7 @@
 {
   "name": "GEFlix — Gestão de Vídeos",
   "short_name": "GEFlix",
-  "description": "Salve e organize seus vídeos favoritos",
+  "description": "Organize seu YouTube e assista o clube do criador",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F1F5F9",

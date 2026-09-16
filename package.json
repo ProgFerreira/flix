@@ -3,12 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "next dev -H 0.0.0.0 -p 3003",
+    "build": "next build --turbopack",
+    "start": "next start -H 0.0.0.0 -p 3003",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "cron:billing": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-billing-cron.ps1",
+    "cron:videos": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-process-videos-cron.ps1",
+    "cron:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-billing-cron.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-videos-cron.ps1",
+    "ffmpeg:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-ffmpeg.ps1",
+    "test:e2e": "playwright test",
+    "test:database": "vitest run lib/rate-limit.database.test.ts"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -17,7 +24,9 @@
     "@radix-ui/react-dialog": "^1.1.17",
     "@radix-ui/react-select": "^2.3.1",
     "@radix-ui/react-toast": "^1.2.17",
+    "@tanstack/react-query": "^5.101.4",
     "bcryptjs": "^3.0.3",
+    "busboy": "^1.6.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
@@ -30,8 +39,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.1",
     "@types/bcryptjs": "^2.4.6",
+    "@types/busboy": "^1.5.4",
     "@types/node": "^20.19.43",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

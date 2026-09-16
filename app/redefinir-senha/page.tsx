@@ -3,86 +3,109 @@
 import { Suspense, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Eye, EyeOff, Lock } from "lucide-react"
 import { Logo } from "@/app/components/Logo"
+import { resetPasswordFormSchema, resetPasswordSchema } from "@/validators/auth"
+import { apiErrorMessage, apiRequest } from "@/lib/api-client"
+import type { z } from "zod"
 
-const iStyle: React.CSSProperties = {
-  width: "100%", padding: "9px 12px",
-  background: "#fff", border: "1px solid #CBD5E1",
-  borderRadius: 8, color: "#0F172A", fontSize: 14, outline: "none", fontFamily: "inherit",
-}
+type FormValues = z.infer<typeof resetPasswordFormSchema>
 
 function RedefinirSenhaForm() {
   const router = useRouter()
   const token = useSearchParams().get("token")
-
-  const [password, setPassword] = useState("")
-  const [confirm, setConfirm] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [done, setDone] = useState(false)
+  const form = useForm<FormValues>({
+    resolver: zodResolver(resetPasswordFormSchema),
+    defaultValues: { password: "", confirm: "" },
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    if (password !== confirm) { setError("As senhas não coincidem"); return }
-
-    setLoading(true)
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, password }),
-    })
-    setLoading(false)
-    if (res.ok) {
+  const onSubmit = form.handleSubmit(async (data) => {
+    const parsed = resetPasswordSchema.safeParse({ token: token ?? "", password: data.password })
+    if (!parsed.success) {
+      form.setError("password", { message: parsed.error.issues[0]?.message ?? "Link inválido" })
+      return
+    }
+    try {
+      await apiRequest("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      })
       setDone(true)
       setTimeout(() => router.push("/login"), 2000)
-    } else {
-      const d = await res.json().catch(() => null)
-      setError(d?.error ?? "Não foi possível redefinir a senha")
+    } catch (err) {
+      form.setError("password", { message: apiErrorMessage(err, "Não foi possível redefinir a senha") })
     }
-  }
+  })
 
   if (!token) {
     return (
-      <div style={{ textAlign: "center" }}>
-        <p style={{ fontSize: 14, color: "#DC2626", fontWeight: 600, marginBottom: 8 }}>Link inválido</p>
-        <p style={{ fontSize: 13, color: "#64748B" }}>Esse link de redefinição está incompleto. Peça um novo.</p>
+      <div className="auth-result">
+        <p className="alert alert-err" role="alert">Link inválido</p>
+        <p className="page-sub mt">Esse link de redefinição está incompleto. Peça um novo.</p>
       </div>
     )
   }
 
   if (done) {
     return (
-      <div style={{ textAlign: "center" }}>
-        <p style={{ fontSize: 14, color: "#15803D", fontWeight: 600, marginBottom: 8 }}>Senha redefinida!</p>
-        <p style={{ fontSize: 13, color: "#64748B" }}>Levando você pro login...</p>
+      <div className="auth-result">
+        <p className="auth-result-title is-ok">Senha redefinida!</p>
+        <p className="page-sub">Levando você pro login...</p>
       </div>
     )
   }
 
+  const passwordError = form.formState.errors.password
+  const confirmError = form.formState.errors.confirm
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <p style={{ fontSize: 13, color: "#64748B", marginBottom: 4 }}>Escolha uma nova senha pra sua conta.</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Nova senha</label>
-        <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mínimo 6 caracteres" style={iStyle} autoFocus />
+    <form onSubmit={onSubmit} className="auth-form">
+      <p className="page-sub">Escolha uma nova senha pra sua conta.</p>
+      <div className="field">
+        <label className="field-label" htmlFor="reset-password">Nova senha</label>
+        <div className="input-icon">
+          <Lock size={18} aria-hidden />
+          <input
+            id="reset-password"
+            className="input"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            placeholder="Mínimo 8 caracteres"
+            autoFocus
+            aria-invalid={Boolean(passwordError)}
+            aria-describedby={passwordError ? "reset-password-error" : undefined}
+            {...form.register("password")}
+          />
+          <button type="button" className="password-toggle" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}>
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        {passwordError && <p id="reset-password-error" className="field-error" role="alert">{passwordError.message}</p>}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Confirmar nova senha</label>
-        <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required minLength={6} placeholder="Repita a senha" style={iStyle} />
+      <div className="field">
+        <label className="field-label" htmlFor="reset-confirm">Confirmar nova senha</label>
+        <div className="input-icon">
+          <Lock size={18} aria-hidden />
+          <input
+            id="reset-confirm"
+            className="input"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            placeholder="Repita a senha"
+            aria-invalid={Boolean(confirmError)}
+            aria-describedby={confirmError ? "reset-confirm-error" : undefined}
+            {...form.register("confirm")}
+          />
+        </div>
+        {confirmError && <p id="reset-confirm-error" className="field-error" role="alert">{confirmError.message}</p>}
       </div>
-
-      {error && (
-        <p style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>
-          {error}
-        </p>
-      )}
-
-      <button type="submit" disabled={loading} style={{
-        padding: "11px 0", background: "#1E40AF", border: "none", borderRadius: 8,
-        color: "#fff", fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
-        opacity: loading ? 0.7 : 1, marginTop: 4, fontFamily: "inherit",
-      }}>
-        {loading ? "Salvando..." : "Redefinir senha"}
+      <button type="submit" className="btn btn-primary btn-block" disabled={form.formState.isSubmitting}>
+        {form.formState.isSubmitting ? "Salvando..." : "Redefinir senha"}
       </button>
     </form>
   )
@@ -90,25 +113,18 @@ function RedefinirSenhaForm() {
 
 export default function RedefinirSenhaPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 64, height: 64, borderRadius: 16, background: "#fff", border: "1px solid #E2E8F0", marginBottom: 16, boxShadow: "0 2px 12px rgba(30,64,175,0.08)" }}>
-            <Logo size={26} />
-          </div>
-          <div><Logo size={30} /></div>
-          <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>Nova senha</p>
+    <div className="auth-page">
+      <div className="auth-box">
+        <div className="auth-brand">
+          <Logo size={30} />
+          <p className="auth-sub">Nova senha</p>
         </div>
-
-        <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid #E2E8F0", boxShadow: "0 4px 24px rgba(15,23,42,0.06)" }}>
-          <Suspense fallback={<p style={{ fontSize: 13, color: "#94A3B8", textAlign: "center" }}>Carregando...</p>}>
+        <div className="auth-card">
+          <Suspense fallback={<p className="page-sub center">Carregando...</p>}>
             <RedefinirSenhaForm />
           </Suspense>
         </div>
-
-        <Link href="/login" style={{ display: "block", textAlign: "center", fontSize: 13, color: "#64748B", textDecoration: "none", marginTop: 20 }}>
-          Voltar pro login
-        </Link>
+        <Link href="/login" className="auth-back">Voltar pro login</Link>
       </div>
     </div>
   )

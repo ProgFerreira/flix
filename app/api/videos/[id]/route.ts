@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { ownedCategoryIds } from "@/lib/categories"
 
 const patchSchema = z.object({
   title: z.string().min(1).optional(),
@@ -30,13 +31,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
 
   const existing = await prisma.video.findUnique({ where: { id: Number(id) }, select: { userId: true } })
-  if (!existing || existing.userId !== userId) return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
+  if (!existing) return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
+
+  const isOwner = existing.userId === userId
+  const share = isOwner
+    ? null
+    : await prisma.videoShare.findUnique({
+        where: { videoId_toUserId: { videoId: Number(id), toUserId: userId } },
+        select: { permission: true },
+      })
+  if (!isOwner && share?.permission !== "edit") {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
+  }
 
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
-  const { categoryIds, ...fields } = parsed.data
+  const categoryOwnerId = isOwner ? userId : existing.userId
+  const { categoryIds: rawCategoryIds, ...fields } = parsed.data
+  const categoryIds = rawCategoryIds !== undefined
+    ? await ownedCategoryIds(categoryOwnerId, rawCategoryIds)
+    : undefined
 
   const video = await prisma.$transaction(async (tx) => {
     if (categoryIds !== undefined) {

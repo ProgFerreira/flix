@@ -2,82 +2,82 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { ArrowLeft, Mail } from "lucide-react"
 import { Logo } from "@/app/components/Logo"
+import { forgotPasswordSchema } from "@/validators/auth"
+import { apiErrorMessage, apiRequest } from "@/lib/api-client"
 
-const iStyle: React.CSSProperties = {
-  width: "100%", padding: "9px 12px",
-  background: "#fff", border: "1px solid #CBD5E1",
-  borderRadius: 8, color: "#0F172A", fontSize: 14, outline: "none", fontFamily: "inherit",
-}
+type FormValues = { email: string }
 
 export default function EsqueciSenhaPage() {
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState("")
+  const [sentEmail, setSentEmail] = useState("")
+  const form = useForm<FormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true); setError("")
-    const res = await fetch("/api/auth/forgot-password", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    })
-    setLoading(false)
-    if (res.ok) setSent(true)
-    else setError("Não foi possível processar o pedido. Tente de novo.")
-  }
+  const onSubmit = form.handleSubmit(async (data) => {
+    try {
+      await apiRequest("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      setSentEmail(data.email)
+      setSent(true)
+    } catch (err) {
+      form.setError("email", { message: apiErrorMessage(err, "Não foi possível processar o pedido. Tente de novo.") })
+    }
+  })
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 64, height: 64, borderRadius: 16, background: "#fff", border: "1px solid #E2E8F0", marginBottom: 16, boxShadow: "0 2px 12px rgba(30,64,175,0.08)" }}>
-            <Logo size={26} />
-          </div>
-          <div><Logo size={30} /></div>
-          <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>Recuperar senha</p>
+    <div className="auth-page">
+      <div className="auth-box">
+        <div className="auth-brand">
+          <Logo size={30} />
+          <p className="auth-sub">Recuperar senha</p>
         </div>
 
-        <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid #E2E8F0", boxShadow: "0 4px 24px rgba(15,23,42,0.06)" }}>
+        <div className="auth-card">
           {sent ? (
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 14, color: "#0F172A", fontWeight: 600, marginBottom: 8 }}>Verifique seu e-mail</p>
-              <p style={{ fontSize: 13, color: "#64748B", lineHeight: 1.6 }}>
-                Se <strong>{email}</strong> tiver uma conta, enviamos um link pra você criar uma nova senha. O link vale por 1 hora.
+            <div className="auth-result">
+              <p className="auth-result-title">Verifique seu e-mail</p>
+              <p className="page-sub is-lead">
+                Se <strong>{sentEmail}</strong> tiver uma conta, enviamos um link pra você criar uma nova senha. O link vale por 1 hora.
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <p style={{ fontSize: 13, color: "#64748B", marginBottom: 4 }}>
-                Digite o e-mail da sua conta e enviamos um link pra você redefinir a senha.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#475569" }}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" style={iStyle} autoFocus />
+            <form onSubmit={onSubmit} className="auth-form">
+              <p className="page-sub">Digite o e-mail da sua conta e enviamos um link pra você redefinir a senha.</p>
+              <div className="field">
+                <label className="field-label" htmlFor="forgot-email">Email</label>
+                <div className="input-icon">
+                  <Mail size={18} aria-hidden />
+                  <input
+                    id="forgot-email"
+                    className="input"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="seu@email.com"
+                    autoFocus
+                    aria-invalid={Boolean(form.formState.errors.email)}
+                    aria-describedby={form.formState.errors.email ? "forgot-email-error" : undefined}
+                    {...form.register("email")}
+                  />
+                </div>
+                {form.formState.errors.email && <p id="forgot-email-error" className="field-error" role="alert">{form.formState.errors.email.message}</p>}
               </div>
-
-              {error && (
-                <p style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>
-                  {error}
-                </p>
-              )}
-
-              <button type="submit" disabled={loading} style={{
-                padding: "11px 0", background: "#1E40AF", border: "none", borderRadius: 8,
-                color: "#fff", fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.7 : 1, marginTop: 4, fontFamily: "inherit",
-              }}>
-                {loading ? "Enviando..." : "Enviar link de recuperação"}
+              <button type="submit" className="btn btn-primary btn-block" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? "Enviando..." : "Enviar link de recuperação"}
               </button>
             </form>
           )}
         </div>
 
-        <Link href="/login" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 13, color: "#64748B", textDecoration: "none", marginTop: 20 }}>
-          <ArrowLeft size={13} /> Voltar pro login
-        </Link>
+        <Link href="/login" className="auth-back"><ArrowLeft size={13} /> Voltar pro login</Link>
       </div>
     </div>
   )

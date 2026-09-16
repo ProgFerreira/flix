@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { serializeVideo } from "@/lib/serialize-video"
 
 export async function GET() {
   const auth = await requireUserId()
@@ -20,7 +21,7 @@ export async function GET() {
     exportedAt: new Date().toISOString(),
     categories,
     videos: videos.map((v) => ({
-      ...v,
+      ...serializeVideo(v),
       categories: v.videoCategories.map((vc) => vc.category),
       videoCategories: undefined,
     })),

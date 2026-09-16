@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireUserId } from "@/lib/session"
+import { serializeVideo } from "@/lib/serialize-video"
 
 export async function GET() {
   const auth = await requireUserId()
@@ -16,5 +17,5 @@ export async function GET() {
     },
   })
 
-  return NextResponse.json(shares.map(s => ({ ...s.video, permission: s.permission, sharedBy: s.video.user })))
+  return NextResponse.json(shares.map(s => ({ ...serializeVideo(s.video), permission: s.permission, sharedBy: s.video.user })))
 }

@@ -104,4 +104,12 @@ describe("canAccessCatalogVideo", () => {
   it("allows a subscriber whose plan exceeds the requirement", () => {
     expect(canAccessCatalogVideo({ ...base, requesterPlan: "pro" })).toBe(true)
   })
+
+  it("lets a granted user watch published content below their plan", () => {
+    expect(canAccessCatalogVideo({ ...base, requesterPlan: "free", isGranted: true })).toBe(true)
+  })
+
+  it("does not let a grant open an unpublished video", () => {
+    expect(canAccessCatalogVideo({ ...base, published: false, requesterPlan: "pro", isGranted: true })).toBe(false)
+  })
 })

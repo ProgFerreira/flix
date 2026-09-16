@@ -1,168 +1,417 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
-import Image from "next/image"
-import { AppHeader } from "@/app/components/AppHeader"
-import { Logo } from "@/app/components/Logo"
+import { AppHeader, VisitorHeader } from "@/app/components/AppHeader"
+import { Pager } from "@/app/components/Pager"
+import { useUrlState } from "@/app/hooks/useUrlState"
+import { loginHref } from "@/lib/auth-redirect"
+import { ConfirmDialog } from "@/app/components/ConfirmDialog"
+import { itemsFromPaginated, pageMeta } from "@/lib/pagination"
 import { usePlayer } from "@/app/contexts/PlayerContext"
-import { Lock, Play, Film, Crown, Search, X } from "lucide-react"
+import { PublishModal } from "@/app/catalogo/PublishModal"
+import { GrantsModal } from "@/app/catalogo/GrantsModal"
+import { CreatorShowcase } from "@/app/catalogo/CreatorShowcase"
+import { ContinueWatching, type ContinueItem } from "@/app/catalogo/ContinueWatching"
+import { CourseRail, type CatalogCourse } from "@/app/catalogo/CourseRail"
+import { continueProgressPercent } from "@/lib/watch-continue"
+import { Lock, Play, Film, Crown, Search, X, Star, Plus, Link2, Trash2, Users, Loader2 } from "lucide-react"
+import { VideoThumb } from "@/app/components/VideoThumb"
 
 type Category = { id: number; name: string; color: string }
 type CatalogVideo = {
   id: number; title: string; thumbnail: string
   duration?: string | null; channelName?: string | null
   createdAt: string; requiredPlan: string; locked: boolean
+  favorited?: boolean; progressSeconds?: number
+  source: "youtube" | "upload"
+  videoId?: string | null
+  published: boolean
+  mine?: boolean
+  status?: string
+  qualities?: string[]
+  processError?: string | null
   videoCategories: { category: Category }[]
 }
 
 const PLAN_LABEL: Record<string, string> = { free: "Free", premium: "Premium", pro: "Pro" }
 const PLAN_COLOR: Record<string, string> = { free: "#64748B", premium: "#7C3AED", pro: "#B45309" }
 
-function VisitorHeader() {
-  return (
-    <header style={{ background: "#fff", borderBottom: "1px solid #E2E8F0", position: "sticky", top: 0, zIndex: 100 }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", height: 58, display: "flex", alignItems: "center", gap: 16 }}>
-        <Link href="/catalogo" style={{ textDecoration: "none", flexShrink: 0 }}>
-          <Logo size={22} />
-        </Link>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <Link href="/login" style={{ padding: "6px 14px", borderRadius: 6, background: "none", border: "1px solid #E2E8F0", color: "#475569", textDecoration: "none", fontSize: 13, fontWeight: 500 }}>
-            Entrar
-          </Link>
-          <Link href="/login" style={{ padding: "6px 14px", borderRadius: 6, background: "#F97316", color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
-            Criar conta
-          </Link>
-        </div>
-      </div>
-    </header>
-  )
+function catalogProgressBar(seconds?: number, duration?: string | null) {
+  return continueProgressPercent(seconds ?? 0, duration)
 }
 
 export default function CatalogoPage() {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const { play } = usePlayer()
+  const queryClient = useQueryClient()
   const isLoggedIn = status === "authenticated"
+  const isAdmin = session?.user?.role === "admin"
 
-  const [videos, setVideos] = useState<CatalogVideo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useUrlState("q", "", v => v)
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [planFilter, setPlanFilter] = useUrlState<"all" | "free" | "premium" | "pro">("plan", "all", v => v === "free" || v === "premium" || v === "pro" ? v : "all")
+  const [onlyFav, setOnlyFav] = useUrlState("favorites", false, v => v === "true")
+  const [onlyMine, setOnlyMine] = useUrlState("mine", false, v => v === "true")
+  const [showPublish, setShowPublish] = useState(false)
+  const [grantVideo, setGrantVideo] = useState<CatalogVideo | null>(null)
+  const [delConfirm, setDelConfirm] = useState<number | null>(null)
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
+  const [page, setPage] = useUrlState("page", 1, v => Math.max(1, Math.floor(Number(v)) || 1))
+  const [selectedVideo, setSelectedVideo] = useUrlState("video", "", v => /^\d+$/.test(v) ? v : "")
+  const [busyId, setBusyId] = useState<number | null>(null)
 
-  const fetchCatalog = useCallback(async () => {
-    setLoading(true)
-    const res = await fetch("/api/catalog")
-    const data = await res.json()
-    if (Array.isArray(data)) setVideos(data)
-    setLoading(false)
-  }, [])
-
-  // Catálogo é público — vídeo gratuito assiste sem conta. Só espera a
-  // sessão resolver (pra saber se mostra o header de visitante ou o normal)
-  // antes de buscar, porque o acesso aos vídeos pagos depende de quem está logado.
   useEffect(() => {
-    if (status === "loading") return
-    fetchCatalog()
-  }, [status, fetchCatalog])
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
 
-  const watch = (v: CatalogVideo) => {
-    if (v.locked) return
-    play({ id: v.id, title: v.title, channelName: v.channelName, source: "upload" })
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(null), 4500)
+    return () => clearTimeout(t)
+  }, [flash])
+
+  const catalogKey = ["catalog", page, debouncedSearch, planFilter, onlyFav, onlyMine, selectedVideo, status] as const
+  const catalogQuery = useQuery({
+    queryKey: catalogKey,
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set("page", String(page))
+      if (selectedVideo) params.set("video", selectedVideo)
+      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim())
+      if (planFilter !== "all") params.set("plan", planFilter)
+      if (onlyFav) params.set("favorited", "1")
+      if (onlyMine) params.set("mine", "1")
+      const res = await fetch(`/api/catalog?${params}`)
+      if (!res.ok) throw new Error("Falha ao carregar catálogo")
+      return res.json()
+    },
+    enabled: status !== "loading",
+    refetchInterval: (query) => {
+      const items = itemsFromPaginated<CatalogVideo>(query.state.data)
+      return items.some((v) => v.status === "processing") ? 4000 : false
+    },
+  })
+
+  const coursesQuery = useQuery({
+    queryKey: ["catalog-courses", planFilter, status],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (planFilter !== "all") params.set("plan", planFilter)
+      const res = await fetch(`/api/catalog/courses?${params}`)
+      if (!res.ok) throw new Error("Falha ao carregar cursos")
+      return res.json()
+    },
+    enabled: status !== "loading",
+  })
+
+  const categoriesQuery = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const res = await fetch("/api/categories")
+      if (!res.ok) throw new Error("Falha ao carregar categorias")
+      return res.json()
+    },
+    enabled: isLoggedIn,
+  })
+
+  const videos = itemsFromPaginated<CatalogVideo>(catalogQuery.data)
+  const courses = itemsFromPaginated<CatalogCourse>(coursesQuery.data)
+  const meta = pageMeta(catalogQuery.data)
+  const categories: Category[] = Array.isArray(categoriesQuery.data) ? categoriesQuery.data : []
+  const loading = catalogQuery.isLoading
+  const hasFilters = Boolean(search || planFilter !== "all" || onlyFav || onlyMine || selectedVideo)
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["catalog"] })
+    queryClient.invalidateQueries({ queryKey: ["catalog-continue"] })
+    queryClient.invalidateQueries({ queryKey: ["catalog-courses"] })
   }
 
-  const filtered = videos.filter((v) =>
-    v.title.toLowerCase().includes(search.toLowerCase()) ||
-    (v.channelName ?? "").toLowerCase().includes(search.toLowerCase())
-  )
+  const watch = (v: CatalogVideo | ContinueItem) => {
+    if ("locked" in v && v.locked) return
+    if ("status" in v && (v.status === "processing" || v.status === "error")) return
+    play({
+      id: v.id,
+      title: v.title,
+      channelName: v.channelName,
+      source: v.source,
+      videoId: v.videoId,
+      startSeconds: v.progressSeconds,
+      qualities: v.qualities,
+    })
+  }
 
-  if (status === "loading" || loading) {
-    return <div style={{ minHeight: "100vh", background: "#F1F5F9" }}>{isLoggedIn ? <AppHeader /> : <VisitorHeader />}<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#64748B" }}>Carregando...</div></div>
+  const toggleFav = async (e: React.MouseEvent, v: CatalogVideo) => {
+    e.stopPropagation()
+    if (!isLoggedIn || v.locked) return
+    if (busyId !== null) return
+    setBusyId(v.id)
+    try {
+    const res = await fetch(`/api/catalog/${v.id}/favorite`, { method: "PATCH" })
+    if (!res.ok) throw new Error("Não foi possível atualizar o favorito.")
+    const d = await res.json()
+    queryClient.setQueryData(catalogKey, (prev: unknown) => {
+      if (!prev || typeof prev !== "object") return prev
+      const data = prev as { items?: CatalogVideo[] }
+      if (!Array.isArray(data.items)) return prev
+      return { ...data, items: data.items.map((x) => x.id === v.id ? { ...x, favorited: d.favorited } : x) }
+    })
+      if (onlyFav) refresh()
+    } catch { setFlash({ text: "Não foi possível atualizar o favorito. Tente novamente.", ok: false }) }
+    finally { setBusyId(null) }
+  }
+
+  const togglePublished = async (v: CatalogVideo) => {
+    if (busyId !== null) return
+    setBusyId(v.id)
+    try {
+    const res = await fetch(`/api/catalog/${v.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published: !v.published }),
+    })
+    if (!res.ok) {
+      const d = await res.json().catch(() => null)
+      setFlash({ text: typeof d?.error === "string" ? d.error : "Não foi possível atualizar", ok: false })
+      return
+    }
+    refresh()
+    } catch { setFlash({ text: "Falha de conexão. Tente novamente.", ok: false }) }
+    finally { setBusyId(null) }
+  }
+
+  const deleteVideo = async (id: number) => {
+    if (busyId !== null) return
+    setBusyId(id)
+    try {
+    const res = await fetch(`/api/catalog/${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      const d = await res.json().catch(() => null)
+      setFlash({ text: typeof d?.error === "string" ? d.error : "Não foi possível excluir", ok: false })
+      return
+    }
+    setDelConfirm(null)
+    refresh()
+    } catch { setFlash({ text: "Falha de conexão. Tente novamente.", ok: false }) }
+    finally { setBusyId(null) }
+  }
+
+  if (status === "loading") {
+    return <div className="page">{isLoggedIn ? <AppHeader /> : <VisitorHeader />}<div className="loading-center">Carregando...</div></div>
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F1F5F9" }}>
+    <div className="page">
       {isLoggedIn ? <AppHeader /> : <VisitorHeader />}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 20px" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginBottom: 22, flexWrap: "wrap" }}>
+
+      {flash && (
+        <div className={`toast ${flash.ok ? "toast-ok" : "toast-err"}`} role="status">
+          {flash.text}
+          <button type="button" className="toast-close" onClick={() => setFlash(null)} aria-label="Fechar">×</button>
+        </div>
+      )}
+
+      <main id="conteudo" className="page-wrap">
+        {!isLoggedIn && <CreatorShowcase />}
+        {isLoggedIn && <ContinueWatching onWatch={watch} />}
+        <CourseRail courses={courses} />
+
+        <div className="page-head is-mid" id="catalogo-lista">
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0F172A" }}>Catálogo</h1>
-            <p style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>
-              {isLoggedIn ? "Vídeos autorais disponíveis conforme o seu plano" : "Assista de graça, sem conta, ou entre pra ver o catálogo completo"}
+            <h1 className="page-title">{isLoggedIn ? "Catálogo" : "Catálogo do criador"}</h1>
+            <p className="page-sub">
+              {isLoggedIn
+                ? isAdmin
+                  ? "Publique aulas para os assinantes ou acompanhe o que já está no ar."
+                  : "Assista às aulas do seu plano. Favoritos e progresso ficam na sua conta."
+                : "Assista às aulas gratuitas sem conta. Assine Premium ou Pro para desbloquear o restante."}
             </p>
           </div>
-          {videos.length > 0 && (
-            <div style={{ position: "relative", flex: "0 1 280px", minWidth: 200 }}>
-              <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94A3B8" }} />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por título ou canal..."
-                style={{ width: "100%", padding: "9px 30px 9px 32px", background: "#fff", border: "1px solid #CBD5E1", borderRadius: 7, color: "#0F172A", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-              {search && (
-                <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", display: "flex" }}>
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="page-head-actions">
+            {(meta.total > 0 || hasFilters) && (
+              <div className="search-wrap">
+                <Search size={14} className="search-ico" />
+                <input className="input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por título ou canal..." aria-label="Buscar no catálogo" />
+                {search && (
+                  <button type="button" className="search-clear" onClick={() => setSearch("")} aria-label="Limpar busca"><X size={13} /></button>
+                )}
+              </div>
+            )}
+            {isAdmin && (
+              <button type="button" className="btn btn-accent" onClick={() => setShowPublish(true)}>
+                <Plus size={14} /> Publicar
+              </button>
+            )}
+          </div>
         </div>
 
+        {(meta.total > 0 || hasFilters) && (
+          <div className="filter-row">
+            {(["all", "free", "premium", "pro"] as const).map((p) => (
+              <button key={p} type="button" className={`chip${planFilter === p ? " is-active" : ""}`} onClick={() => setPlanFilter(p)}>
+                {p === "all" ? "Todos" : PLAN_LABEL[p]}
+              </button>
+            ))}
+            {isLoggedIn && (
+              <>
+                <button type="button" className={`chip${onlyFav ? " is-active" : ""}`} onClick={() => setOnlyFav(!onlyFav)}>
+                  Favoritos
+                </button>
+                <button type="button" className={`chip${onlyMine ? " is-active" : ""}`} onClick={() => setOnlyMine(!onlyMine)}>
+                  Meus
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {!isLoggedIn && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10, padding: "12px 16px", marginBottom: 20 }}>
+          <div className="banner">
             <Crown size={16} color="#1E40AF" />
-            <p style={{ fontSize: 13, color: "#1E40AF" }}>
-              Você está vendo como visitante. <Link href="/login" style={{ color: "#1E40AF", fontWeight: 600 }}>Entre ou crie uma conta</Link> pra desbloquear os vídeos Premium e Pro.
+            <p>
+              Visitante vê o free. <Link href={loginHref("/catalogo", true)} className="link">Crie uma conta</Link> e peça Premium/Pro via PIX para assistir às aulas pagas.
             </p>
           </div>
         )}
 
-        {filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 0", color: "#94A3B8" }}>
-            <Film size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
-            <p style={{ fontSize: 15, fontWeight: 600, color: "#64748B" }}>
-              {videos.length === 0 ? "Nenhum vídeo publicado ainda" : "Nenhum vídeo encontrado"}
-            </p>
+        {selectedVideo && <div className="banner"><p>Conteúdo selecionado</p><button className="btn btn-ghost" onClick={() => setSelectedVideo("")}>Ver todo o catálogo</button></div>}
+        {catalogQuery.isError ? <div className="alert alert-err" role="alert">Não foi possível carregar os vídeos. <button className="btn btn-ghost" onClick={() => catalogQuery.refetch()}>Tentar novamente</button></div> : loading ? <div className="catalog-grid" aria-busy="true" aria-label="Carregando vídeos">{Array.from({ length: 6 }, (_, i) => <div key={i} className="video-skeleton" />)}</div> : videos.length === 0 ? (
+          <div className="empty">
+            <Film size={40} className="empty-icon" />
+            {hasFilters && <button className="btn btn-ghost" onClick={() => { setSearch(""); setPlanFilter("all"); setOnlyFav(false); setOnlyMine(false); setSelectedVideo("") }}>Limpar filtros</button>}
+            <p>{meta.total === 0 && !hasFilters ? (courses.length > 0 ? "Nenhuma aula avulsa neste filtro" : "Nenhum vídeo publicado ainda") : "Nenhum vídeo encontrado"}</p>
+            {isAdmin && meta.total === 0 && courses.length === 0 && !hasFilters && (
+              <>
+                <p className="page-sub">Publique um link do YouTube ou envie um arquivo MP4, WebM ou MOV.</p>
+                <button type="button" className="btn btn-accent" onClick={() => setShowPublish(true)}>
+                  <Plus size={14} /> Publicar o primeiro
+                </button>
+              </>
+            )}
+            {isLoggedIn && !isAdmin && meta.total === 0 && !hasFilters && (
+              <p className="page-sub">Quando o criador publicar aulas, elas aparecem aqui conforme o seu plano.</p>
+            )}
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-            {filtered.map((v) => (
-              <div key={v.id} className="animate-fade-up" style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #E2E8F0", background: "#fff", opacity: v.locked ? 0.85 : 1 }}>
-                <div onClick={() => watch(v)} style={{ position: "relative", paddingBottom: "56.25%", background: "#0F172A", cursor: v.locked ? "not-allowed" : "pointer" }}>
-                  <Image src={v.thumbnail} alt={v.title} fill sizes="(max-width: 640px) 50vw, 220px" style={{ objectFit: "cover", filter: v.locked ? "grayscale(0.5) brightness(0.5)" : "none" }} />
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: v.locked ? "rgba(0,0,0,0.25)" : "transparent" }}>
+          <div className="catalog-grid">
+            {videos.map((v) => {
+              const processing = v.status === "processing"
+              const failed = v.status === "error"
+              const blocked = v.locked || processing || failed
+              const progressPct = catalogProgressBar(v.progressSeconds, v.duration)
+              return (
+              <div id={`video-${v.id}`} key={v.id} className={`video-card animate-fade-up${v.locked ? " is-locked" : ""}`}>
+                <div
+                  className={`video-card-thumb${v.locked || processing || failed ? " is-locked" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={v.locked ? `${v.title} (bloqueado)` : processing ? `${v.title} (processando)` : failed ? `${v.title} (falhou)` : `Assistir ${v.title}`}
+                  onClick={() => watch(v)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); watch(v) } }}
+                >
+                  <VideoThumb src={v.thumbnail} alt={v.title} sizes="(max-width: 640px) 50vw, 220px" />
+                  <div className="thumb-center">
                     {v.locked ? (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: "#fff" }}>
+                      <div className="lock-msg">
                         <Lock size={22} />
-                        <span style={{ fontSize: 11, fontWeight: 700, background: PLAN_COLOR[v.requiredPlan], padding: "2px 8px", borderRadius: 20 }}>
+                        <span className="lock-plan" style={{ ["--plan-color" as string]: PLAN_COLOR[v.requiredPlan] }}>
                           Exige {PLAN_LABEL[v.requiredPlan]}+
                         </span>
                       </div>
-                    ) : (
-                      <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#F97316", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Play size={18} fill="#fff" color="#fff" style={{ marginLeft: 3 }} />
+                    ) : processing ? (
+                      <div className="lock-msg">
+                        <Loader2 size={22} className="is-spinning" />
+                        <span className="lock-plan" style={{ ["--plan-color" as string]: "#b45309" }}>Processando</span>
                       </div>
+                    ) : failed ? (
+                      <div className="lock-msg">
+                        <span className="lock-plan" style={{ ["--plan-color" as string]: "#dc2626" }}>Falha no processamento</span>
+                      </div>
+                    ) : (
+                      <div className="play-btn"><Play size={18} fill="#fff" color="#fff" /></div>
                     )}
                   </div>
-                  {v.duration && <span style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.8)", color: "#fff", fontSize: 11, fontWeight: 600, padding: "2px 6px", borderRadius: 4 }}>{v.duration}</span>}
+                  {v.duration && <span className="thumb-time">{v.duration}</span>}
+                  {!blocked && progressPct != null && (
+                    <div className="thumb-progress" aria-hidden="true">
+                      <span style={{ ["--bar-pct" as string]: `${progressPct}%` }} />
+                    </div>
+                  )}
+                  <span className={`thumb-flag ${processing ? "is-warn" : failed ? "is-muted" : v.published ? "is-ok" : "is-muted"}`}>
+                    {v.source === "youtube" ? <Link2 size={9} /> : <Film size={9} />}
+                    {" "}{processing ? "Processando" : failed ? "Erro" : v.published ? (v.source === "youtube" ? "Link" : "Arquivo") : "Rascunho"}
+                  </span>
+                  {isLoggedIn && !blocked && (
+                    <button
+                      type="button"
+                      title={v.favorited ? "Remover dos favoritos" : "Favoritar"}
+                      aria-label={v.favorited ? "Remover dos favoritos" : "Favoritar"}
+                      disabled={busyId !== null}
+                      onKeyDown={e => e.stopPropagation()}
+                      onClick={(e) => toggleFav(e, v)}
+                      className={`fav-btn${v.favorited ? " is-on" : ""}`}
+                    >
+                      <Star size={14} fill={v.favorited ? "currentColor" : "none"} />
+                    </button>
+                  )}
                 </div>
-                <div style={{ padding: "10px 11px" }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", lineHeight: 1.4, marginBottom: 5 }} title={v.title}>
+                <div className="video-card-body">
+                  <h3 className="video-card-title" title={v.title}>
                     {v.title.length > 58 ? v.title.slice(0, 58) + "…" : v.title}
                   </h3>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    {v.channelName && <span style={{ fontSize: 11, color: "#94A3B8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.channelName}</span>}
+                  <div className="video-card-meta">
+                    {v.channelName && <span className="video-card-channel">{v.channelName}</span>}
                     {v.videoCategories.slice(0, 1).map((vc) => (
-                      <span key={vc.category.id} style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 10, background: vc.category.color + "20", color: vc.category.color, flexShrink: 0 }}>{vc.category.name}</span>
+                      <span key={vc.category.id} className="cat-tag" style={{ ["--chip-color" as string]: vc.category.color }}>{vc.category.name}</span>
                     ))}
                   </div>
+                  {v.mine && v.processError && (
+                    <p className="field-error">{v.processError}</p>
+                  )}
                   {v.locked && (
-                    <Link href={isLoggedIn ? "/plano" : "/login"} style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 12, fontWeight: 600, padding: "6px 0", borderRadius: 6, background: "#FFFBEB", border: "1px solid #FDE68A", color: "#B45309", textDecoration: "none" }}>
+                    <Link href={isLoggedIn ? "/plano" : loginHref(`/catalogo?video=${v.id}`)} className="btn btn-upgrade">
                       <Crown size={12} /> {isLoggedIn ? `Assinar ${PLAN_LABEL[v.requiredPlan]}` : "Entrar pra assistir"}
                     </Link>
                   )}
+                  {v.mine && (
+                    <div className="admin-video-actions">
+                      <button type="button" onClick={() => togglePublished(v)} className="btn btn-ghost" disabled={processing || busyId !== null}>
+                        {v.published ? "Despublicar" : "Publicar"}
+                      </button>
+                      <button type="button" onClick={() => setGrantVideo(v)} className="icon-btn" aria-label="Quem pode ver" title="Quem pode ver">
+                        <Users size={14} />
+                      </button>
+                      <button type="button" onClick={() => setDelConfirm(v.id)} className="icon-btn is-danger" aria-label={`Excluir ${v.title}`} disabled={busyId !== null}><Trash2 size={16} /></button>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
-      </div>
+        <Pager page={meta.page} pageCount={meta.pageCount} total={meta.total} onPage={setPage} />
+      </main>
+
+      <ConfirmDialog open={delConfirm !== null} title="Excluir vídeo?" descricao="O vídeo será removido permanentemente. Esta ação não pode ser desfeita." perigo carregando={busyId !== null} confirmarLabel="Excluir vídeo" onCancel={() => setDelConfirm(null)} onConfirm={() => { if (delConfirm !== null) void deleteVideo(delConfirm) }} />
+      {grantVideo && (
+        <GrantsModal
+          videoId={grantVideo.id}
+          title={grantVideo.title}
+          onClose={() => setGrantVideo(null)}
+          onSaved={() => { setGrantVideo(null); setFlash({ text: "Acesso extra atualizado", ok: true }) }}
+        />
+      )}
+      {showPublish && (
+        <PublishModal
+          categories={categories}
+          onClose={() => setShowPublish(false)}
+          onPublished={() => { setShowPublish(false); setOnlyMine(true); refresh() }}
+        />
+      )}
     </div>
   )
 }

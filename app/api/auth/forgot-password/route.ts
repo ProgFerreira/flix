@@ -16,7 +16,7 @@ const FORGOT_PASSWORD_WINDOW_MS = 60 * 60 * 1000
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req.headers)
-  const rl = checkRateLimit(`forgot-password:${ip}`, FORGOT_PASSWORD_LIMIT, FORGOT_PASSWORD_WINDOW_MS)
+  const rl = await checkRateLimit(`forgot-password:${ip}`, FORGOT_PASSWORD_LIMIT, FORGOT_PASSWORD_WINDOW_MS)
   if (!rl.allowed) {
     // Mesmo aqui, mantém a resposta genérica — só que com 429 pra sinalizar
     // "devagar" sem confirmar nada sobre o e-mail em si.

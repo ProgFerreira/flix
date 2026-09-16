@@ -1,10 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Image from "next/image"
 import { CheckCircle2, Play, Clock } from "lucide-react"
 import { AppHeader } from "@/app/components/AppHeader"
+import { Pager } from "@/app/components/Pager"
+import { itemsFromPaginated, pageMeta } from "@/lib/pagination"
 import { usePlayer } from "@/app/contexts/PlayerContext"
+import { useRequireAuth } from "@/app/components/useRequireAuth"
+import { useQuery } from "@tanstack/react-query"
 
 type VideoCategory = { category: { id: number; name: string; color: string } }
 type Video = {
@@ -41,60 +45,63 @@ function formatDate(iso: string) {
 }
 
 export default function HistoricoPage() {
-  const [videos, setVideos] = useState<Video[]>([])
-  const [loading, setLoading] = useState(true)
+  const status = useRequireAuth()
+  const [page, setPage] = useState(1)
   const { play: playVideo } = usePlayer()
 
-  useEffect(() => {
-    fetch("/api/videos?status=watched&order=newest")
-      .then(r => r.json())
-      .then((data: Video[]) => {
-        const sorted = Array.isArray(data)
-          ? data.filter(v => v.watchedAt).sort((a, b) => new Date(b.watchedAt!).getTime() - new Date(a.watchedAt!).getTime())
-          : []
-        setVideos(sorted)
-      })
-      .finally(() => setLoading(false))
-  }, [])
+  const histQuery = useQuery({
+    queryKey: ["history", page],
+    queryFn: async () => {
+      const r = await fetch(`/api/videos?status=watched&order=newest&page=${page}`)
+      return r.json()
+    },
+    enabled: status === "authenticated",
+  })
+  const videos = itemsFromPaginated<Video>(histQuery.data)
+    .filter(v => v.watchedAt)
+    .sort((a, b) => new Date(b.watchedAt!).getTime() - new Date(a.watchedAt!).getTime())
+  const meta = pageMeta(histQuery.data)
+  const loading = histQuery.isLoading
+
+  if (status === "loading" || status === "unauthenticated") {
+    return <div className="page"><AppHeader /><div className="loading-center">Carregando...</div></div>
+  }
 
   const groups = groupByDate(videos)
 
   return (
-    <div style={{ background: "#f4f4f5", minHeight: "100vh" }}>
+    <div className="page">
       <AppHeader />
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 20px" }}>
-
-        {/* Page title */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#18181b", letterSpacing: "-0.3px" }}>Histórico</h1>
-          {!loading && videos.length > 0 && (
-            <p style={{ fontSize: 13, color: "#71717a", marginTop: 4 }}>{videos.length} vídeo{videos.length !== 1 ? "s" : ""} assistido{videos.length !== 1 ? "s" : ""}</p>
+      <main id="conteudo" className="page-wrap page-wrap--narrow">
+        <div className="mb-section">
+          <h1 className="page-title">Histórico</h1>
+          {!loading && meta.total > 0 && (
+            <p className="page-sub">{meta.total} vídeo{meta.total !== 1 ? "s" : ""} assistido{meta.total !== 1 ? "s" : ""}</p>
           )}
         </div>
 
         {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="history-list">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="skeleton" style={{ borderRadius: 10, height: 72 }} />
+              <div key={i} className="skeleton skeleton-row" />
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 0", color: "#a1a1aa", background: "#fff", borderRadius: 12, border: "1px solid #e4e4e7" }}>
-            <CheckCircle2 size={44} style={{ margin: "0 auto 14px", opacity: 0.25 }} />
-            <p style={{ fontSize: 16, fontWeight: 600, color: "#71717a", marginBottom: 6 }}>Nenhum vídeo assistido ainda</p>
-            <p style={{ fontSize: 13 }}>Marque vídeos como assistidos na página principal para vê-los aqui</p>
+          <div className="empty empty-card">
+            <CheckCircle2 size={44} className="empty-icon" />
+            <p>Nenhum vídeo assistido ainda</p>
+            <p className="page-sub">Marque vídeos como assistidos na página principal para vê-los aqui</p>
           </div>
         ) : (
           groups.map(group => (
-            <div key={group.label} style={{ marginBottom: 28 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#71717a", letterSpacing: "0.08em", textTransform: "uppercase" }}>{group.label}</span>
-                <div style={{ flex: 1, height: 1, background: "#e4e4e7" }} />
-                <span style={{ fontSize: 11, color: "#a1a1aa" }}>{group.videos.length} vídeo{group.videos.length !== 1 ? "s" : ""}</span>
+            <div key={group.label} className="history-group">
+              <div className="history-label">
+                <span>{group.label}</span>
+                <hr />
+                <span className="text-xs">{group.videos.length} vídeo{group.videos.length !== 1 ? "s" : ""}</span>
               </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div className="history-list">
                 {group.videos.map(video => (
                   <VideoRow key={video.id} video={video} onWatch={() => playVideo(video)} />
                 ))}
@@ -102,55 +109,44 @@ export default function HistoricoPage() {
             </div>
           ))
         )}
-      </div>
-
+        <Pager page={meta.page} pageCount={meta.pageCount} total={meta.total} onPage={setPage} />
+      </main>
     </div>
   )
 }
 
 function VideoRow({ video, onWatch }: { video: Video; onWatch: () => void }) {
-  const [hover, setHover] = useState(false)
-
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, border: "1px solid #e4e4e7", background: "#fff", boxShadow: hover ? "0 2px 8px rgba(0,0,0,0.07)" : "none", transition: "box-shadow 0.15s", cursor: "pointer" }}
-      onClick={onWatch}>
-
-      {/* Thumbnail */}
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        <Image src={video.thumbnail} alt={video.title} width={96} height={54} style={{ borderRadius: 6, objectFit: "cover", display: "block" }} />
-        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", opacity: hover ? 1 : 0, transition: "opacity 0.15s" }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e85d04", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Play size={12} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />
-          </div>
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Assistir ${video.title}`}
+      className="history-row"
+      onClick={onWatch}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onWatch() } }}
+    >
+      <div className="history-thumb">
+        <Image src={video.thumbnail} alt={video.title} width={96} height={54} style={{ objectFit: "cover" }} />
+        <div className="video-card-overlay">
+          <div className="play-btn play-btn--sm"><Play size={12} fill="#fff" color="#fff" /></div>
         </div>
-        {video.duration && (
-          <span style={{ position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.8)", color: "#fff", fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3 }}>{video.duration}</span>
-        )}
+        {video.duration && <span className="thumb-time">{video.duration}</span>}
       </div>
 
-      {/* Info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: "#18181b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>{video.title}</p>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {video.channelName && <span style={{ fontSize: 12, color: "#71717a" }}>{video.channelName}</span>}
+      <div className="history-body">
+        <p className="history-title">{video.title}</p>
+        <div className="history-meta">
+          {video.channelName && <span className="muted-2">{video.channelName}</span>}
           {video.videoCategories.map(vc => (
-            <span key={vc.category.id} style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 10, background: vc.category.color + "20", color: vc.category.color }}>{vc.category.name}</span>
+            <span key={vc.category.id} className="cat-tag" style={{ ["--chip-color" as string]: vc.category.color }}>{vc.category.name}</span>
           ))}
         </div>
       </div>
 
-      {/* Watched time */}
       {video.watchedAt && (
-        <div style={{ flexShrink: 0, textAlign: "right" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#16a34a", justifyContent: "flex-end", marginBottom: 2 }}>
-            <CheckCircle2 size={11} />
-            <span style={{ fontSize: 11, fontWeight: 600 }}>Assistido</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 3, color: "#a1a1aa", justifyContent: "flex-end" }}>
-            <Clock size={10} />
-            <span style={{ fontSize: 11 }}>{formatDate(video.watchedAt)} · {formatTime(video.watchedAt)}</span>
-          </div>
+        <div className="history-when">
+          <div className="is-ok"><CheckCircle2 size={11} /> Assistido</div>
+          <div className="when"><Clock size={10} /> {formatDate(video.watchedAt)} · {formatTime(video.watchedAt)}</div>
         </div>
       )}
     </div>
