@@ -34,6 +34,12 @@ export async function GET() {
       SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()
     `
     ;(checks as unknown as Record<string, unknown>).tables = tables.map((t) => t.table_name)
+    const lowerCaseSetting = await prisma.$queryRaw<{ Variable_name: string; Value: string }[]>`
+      SHOW VARIABLES LIKE 'lower_case_table_names'
+    `
+    ;(checks as unknown as Record<string, unknown>).lowerCaseTableNames = lowerCaseSetting[0]?.Value
+    const userCount = await prisma.$queryRawUnsafe<{ c: bigint }[]>("SELECT COUNT(*) as c FROM `user`")
+    ;(checks as unknown as Record<string, unknown>).userCount = Number(userCount[0]?.c ?? 0)
   } catch (err) {
     const e = err as { code?: string; message?: string }
     checks.database = "error"
