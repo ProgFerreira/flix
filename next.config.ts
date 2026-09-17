@@ -43,7 +43,12 @@ const nextConfig: NextConfig = {
   // publicado — as migrations nunca aplicam e o cadastro quebra por tabela
   // ausente. Força a inclusão explicitamente.
   outputFileTracingIncludes: {
-    "*": ["./node_modules/prisma/**/*", "./node_modules/@prisma/**/*"],
+    "*": [
+      "./node_modules/prisma/**/*",
+      "./node_modules/@prisma/**/*",
+      "./prisma/migrations/**/*",
+      "./prisma/schema.prisma",
+    ],
   },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "img.youtube.com" }],
