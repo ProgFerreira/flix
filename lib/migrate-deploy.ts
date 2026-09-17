@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { existsSync } from "node:fs"
+import { chmodSync, existsSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
 
 const g = globalThis as unknown as {
@@ -19,6 +19,23 @@ export function projectRootWithPrisma(cwd = process.cwd()): string {
     dir = parent
   }
   return cwd
+}
+
+// outputFileTracingIncludes copia os binários do motor do Prisma pro build
+// publicado, mas não preserva o bit de execução — no Linux da Hostinger eles
+// chegam sem permissão e o schema-engine falha com EACCES ao tentar rodar.
+// Windows ignora chmod, então isso é inofensivo em dev.
+function ensureEnginesExecutable(root: string): void {
+  const enginesDir = path.join(root, "node_modules", "@prisma", "engines")
+  if (!existsSync(enginesDir)) return
+  for (const name of readdirSync(enginesDir)) {
+    const full = path.join(enginesDir, name)
+    try {
+      if (statSync(full).isFile()) chmodSync(full, 0o755)
+    } catch {
+      // arquivo não executável (ex.: .json) ou sem permissão pra alterar — ignora
+    }
+  }
 }
 
 export function prismaMigrateArgs(): { cmd: string; args: string[] } {
@@ -47,6 +64,7 @@ export function runMigrateDeploy(): Promise<{ ok: boolean; message: string }> {
     return Promise.resolve(result)
   }
   const cwd = projectRootWithPrisma()
+  ensureEnginesExecutable(cwd)
   return new Promise((resolve) => {
     const child = spawn(invocation.cmd, invocation.args, {
       cwd,
