@@ -13,3 +13,8 @@ export function loginHref(returnTo = "/", register = false): string {
   if (register) params.set("mode", "register")
   return `/login?${params}`
 }
+
+/** Post-logout URL. Query string avoids a CDN hit on the bare `/login` cache. */
+export function logoutHref(): string {
+  return loginHref("/")
+}

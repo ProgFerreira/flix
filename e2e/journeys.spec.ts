@@ -237,6 +237,8 @@ test.describe.serial("Critical user journeys", () => {
 
     await page.getByRole("button", { name: "Sair", exact: true }).click()
     await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByRole("heading", { name: "Bem-vindo de volta" })).toBeVisible()
+    await expect(page.locator("body")).not.toContainText(":HL[")
     await page.goto("/catalogo")
     await expect(page.getByRole("heading", { name: courseTitle })).toBeVisible()
     await expect(page.getByRole("heading", { name: uploadTitle })).toHaveCount(0)

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useSession, signOut } from "next-auth/react"
+import { useSession } from "next-auth/react"
+import { signOutToLogin } from "@/lib/sign-out"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -533,7 +534,7 @@ export default function ContaPage() {
           setDeletingAccount(true)
           try {
             await apiRequest("/api/account", { method: "DELETE" })
-            await signOut({ callbackUrl: "/login" })
+            await signOutToLogin()
           } catch (err) {
             setDeletingAccount(false)
             setConfirmDelete(false)

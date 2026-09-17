@@ -238,6 +238,8 @@ test.describe.serial("Admin de cursos", () => {
     await page.getByRole("link", { name: "Voltar ao catálogo" }).click()
     await page.getByRole("button", { name: "Sair", exact: true }).click()
     await expect(page).toHaveURL(/\/login/)
+    await expect(page.getByRole("heading", { name: "Bem-vindo de volta" })).toBeVisible()
+    await expect(page.locator("body")).not.toContainText(":HL[")
     await login(page, admin.email, `/admin/cursos/${course.id}`)
     await page.getByRole("link", { name: "Pré-visualizar" }).click()
     await expect(page.getByRole("link", { name: "Iniciar curso" })).toBeVisible()

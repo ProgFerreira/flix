@@ -69,6 +69,13 @@ const nextConfig: NextConfig = {
         source: "/video-placeholder.svg",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
+      {
+        source: "/login",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, must-revalidate" },
+          { key: "CDN-Cache-Control", value: "no-store" },
+        ],
+      },
     ]
   },
 }

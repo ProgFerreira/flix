@@ -4,6 +4,11 @@ import "./css/app.css"
 import "./css/ux.css"
 import { Providers } from "./providers"
 
+// Hostinger's CDN (hcdn) strips Next.js Vary on RSC headers and then caches
+// prerendered HTML with s-maxage=1y. A later RSC prefetch of the same URL is
+// served as the document (raw `:HL[...]` payload) — that is the Sair dump.
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = {
   title: "GEFlix — Gestão de Vídeos",
   description: "Organize seus vídeos favoritos, compartilhe coleções e descubra conteúdos exclusivos. Comece gratuitamente.",

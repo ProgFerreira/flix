@@ -3,7 +3,8 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { signOut, useSession } from "next-auth/react"
+import { useSession } from "next-auth/react"
+import { signOutToLogin } from "@/lib/sign-out"
 import { BarChart2, History, LogOut, CreditCard, Layers, Clapperboard, Film, FolderOpen, UserRound, Menu, X, Users, DollarSign, LayoutDashboard, ClipboardList, ScrollText, BookOpen } from "lucide-react"
 import { loginHref } from "@/lib/auth-redirect"
 import { Logo } from "@/app/components/Logo"
@@ -91,7 +92,7 @@ export function AppHeader() {
           )}
           {session && navLink("/conta", "Conta", <UserRound size={14} />)}
           {session && (
-            <button type="button" className="btn btn-ghost" onClick={() => signOut({ callbackUrl: "/login" })}>
+            <button type="button" className="btn btn-ghost" onClick={() => void signOutToLogin()}>
               <LogOut size={13} /> Sair
             </button>
           )}
