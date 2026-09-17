@@ -36,6 +36,15 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  // instrumentation.ts chama o CLI do pacote "prisma" via child_process pra
+  // rodar as migrations no boot, mas só referencia o caminho como string
+  // (não faz import/require estático). Sem essa dica, o file tracing da
+  // Hostinger não sabe que precisa desse pacote e não o inclui no build
+  // publicado — as migrations nunca aplicam e o cadastro quebra por tabela
+  // ausente. Força a inclusão explicitamente.
+  outputFileTracingIncludes: {
+    "*": ["./node_modules/prisma/**/*"],
+  },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "img.youtube.com" }],
     // Thumbnails do YouTube são estáveis por videoId — 7 dias no otimizador.
