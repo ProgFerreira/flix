@@ -28,6 +28,12 @@ export async function GET() {
 
   try {
     await prisma.$queryRaw`SELECT 1`
+    // Diagnóstico temporário: migrate deploy diz "no pending migrations" mas
+    // o cadastro dá P2021 (tabela ausente) — precisa ver o que existe de fato.
+    const tables = await prisma.$queryRaw<{ table_name: string }[]>`
+      SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()
+    `
+    ;(checks as unknown as Record<string, unknown>).tables = tables.map((t) => t.table_name)
   } catch (err) {
     const e = err as { code?: string; message?: string }
     checks.database = "error"
