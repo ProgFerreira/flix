@@ -185,6 +185,8 @@ test.describe.serial("Admin de cursos", () => {
 
     await page.getByLabel("Publicado no catálogo").check()
     await page.getByRole("button", { name: "Salvar curso" }).click()
+    await expect(page.getByRole("status").filter({ hasText: "Curso salvo" }).first()).toBeVisible()
+    await expect(page.getByRole("button", { name: "Curso salvo" })).toBeVisible()
 
     await expect.poll(async () => {
       const row = await prisma.course.findFirst({

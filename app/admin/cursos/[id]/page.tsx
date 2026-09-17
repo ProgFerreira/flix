@@ -13,7 +13,7 @@ import { slugifyCourseTitle } from "@/lib/course"
 import { ModuleCard } from "@/app/components/admin/courses/ModuleCard"
 import { LessonPickerModal } from "@/app/components/admin/courses/LessonPickerModal"
 import type { LessonDraft, ModuleDraft, PickerVideo } from "@/app/components/admin/courses/types"
-import { ChevronLeft, Eye, Plus } from "lucide-react"
+import { Check, ChevronLeft, Eye, Plus } from "lucide-react"
 
 type CourseDetail = {
   id: number
@@ -51,6 +51,7 @@ export default function AdminCourseEditorPage() {
   const [modules, setModules] = useState<ModuleDraft[]>([])
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
   const [pickerModule, setPickerModule] = useState<string | null>(null)
   const [pickerQ, setPickerQ] = useState("")
   const [delOpen, setDelOpen] = useState(false)
@@ -62,6 +63,12 @@ export default function AdminCourseEditorPage() {
     if (status === "unauthenticated") { router.push("/login"); return }
     if (!isAdmin) { router.push("/"); return }
   }, [status, isAdmin, router])
+
+  useEffect(() => {
+    if (!flash) return
+    const timer = setTimeout(() => setFlash(null), 3500)
+    return () => clearTimeout(timer)
+  }, [flash])
 
   const query = useQuery({
     queryKey: ["admin", "course", courseId],
@@ -111,6 +118,7 @@ export default function AdminCourseEditorPage() {
   const saveAll = async () => {
     setSaving(true)
     setError("")
+    setFlash(null)
     try {
       await apiRequest(`/api/admin/courses/${courseId}`, {
         method: "PATCH",
@@ -139,6 +147,7 @@ export default function AdminCourseEditorPage() {
       await queryClient.invalidateQueries({ queryKey: ["admin", "courses"] })
       await queryClient.invalidateQueries({ queryKey: ["catalog-courses"] })
       await queryClient.invalidateQueries({ queryKey: ["catalog-course"] })
+      setFlash({ text: "Curso salvo", ok: true })
     } catch (err) {
       setError(apiErrorMessage(err, "Não foi possível salvar o curso"))
     } finally {
@@ -230,13 +239,28 @@ export default function AdminCourseEditorPage() {
               </a>
             )}
             <button type="button" className="btn btn-danger-soft" onClick={() => setDelOpen(true)}>Excluir</button>
-            <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void saveAll()}>
-              {saving ? "Salvando..." : "Salvar curso"}
+            <button
+              type="button"
+              className={`btn ${flash?.ok ? "btn-ok-soft" : "btn-primary"}`}
+              disabled={saving}
+              onClick={() => void saveAll()}
+            >
+              {saving ? "Salvando..." : flash?.ok ? (
+                <><Check size={14} aria-hidden /> Curso salvo</>
+              ) : "Salvar curso"}
             </button>
           </div>
         </div>
 
+        {flash && (
+          <div className={`toast ${flash.ok ? "toast-ok" : "toast-err"}`} role="status">
+            {flash.text}
+            <button type="button" className="toast-close" onClick={() => setFlash(null)} aria-label="Fechar">×</button>
+          </div>
+        )}
+
         {error && <div className="alert alert-err" role="alert">{error}</div>}
+        {flash?.ok && <div className="alert alert-ok">{flash.text}</div>}
 
         <form className="card card-form" onSubmit={(e) => { e.preventDefault(); void saveAll() }}>
           <div className="course-cover-grid">
