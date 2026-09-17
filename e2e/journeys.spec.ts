@@ -225,7 +225,7 @@ test.describe.serial("Critical user journeys", () => {
     await page.getByRole("tab", { name: "Já enviado" }).click()
     await expect(page.getByRole("dialog").getByRole("button", { name: uploadTitle })).toBeVisible()
     await page.getByRole("dialog").getByRole("button", { name: uploadTitle }).click()
-    await page.getByLabel("Publicado no catálogo").check()
+    await page.getByRole("button", { name: /^Publicado/ }).click()
     await page.getByRole("button", { name: "Salvar curso" }).click()
     await expect.poll(async () => {
       const row = await prisma.course.findFirst({

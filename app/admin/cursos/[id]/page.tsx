@@ -57,6 +57,7 @@ export default function AdminCourseEditorPage() {
   const [editingLesson, setEditingLesson] = useState<{ moduleKey: string; lesson: LessonDraft } | null>(null)
   const [delOpen, setDelOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [publishing, setPublishing] = useState(false)
   const hydratedId = useRef<number | null>(null)
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function AdminCourseEditorPage() {
     setLearnings(course.learnings ?? "")
     setThumbnail(course.thumbnail ?? "")
     setRequiredPlan(course.requiredPlan)
-    setPublished(course.published)
+    setPublished(Boolean(course.published))
     setModules(course.modules.map((module) => ({
       key: String(module.id),
       title: module.title,
@@ -147,6 +148,7 @@ export default function AdminCourseEditorPage() {
           })),
         }),
       })
+      hydratedId.current = null
       await queryClient.invalidateQueries({ queryKey: ["admin", "course", courseId] })
       await queryClient.invalidateQueries({ queryKey: ["admin", "courses"] })
       await queryClient.invalidateQueries({ queryKey: ["catalog-courses"] })
@@ -168,6 +170,31 @@ export default function AdminCourseEditorPage() {
     } catch (err) {
       setError(apiErrorMessage(err, "Não foi possível excluir o curso"))
       setDeleting(false)
+    }
+  }
+
+  const persistPublished = async (next: boolean) => {
+    if (publishing || next === published) return
+    setPublishing(true)
+    setError("")
+    setPublished(next)
+    try {
+      await apiRequest(`/api/admin/courses/${courseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: next }),
+      })
+      queryClient.setQueryData(["admin", "course", courseId], (prev: unknown) => {
+        if (!prev || typeof prev !== "object") return prev
+        return { ...prev, published: next }
+      })
+      await queryClient.invalidateQueries({ queryKey: ["admin", "courses"] })
+      await queryClient.invalidateQueries({ queryKey: ["catalog-courses"] })
+    } catch (err) {
+      setPublished(!next)
+      setError(apiErrorMessage(err, "Não foi possível atualizar a publicação"))
+    } finally {
+      setPublishing(false)
     }
   }
 
@@ -334,15 +361,27 @@ export default function AdminCourseEditorPage() {
                 <option value="pro">Pro</option>
               </select>
             </label>
-            <div style={{ flex: 1 }}>
+            <div className="field" style={{ flex: 1 }}>
               <span className="field-label">Status</span>
-              <div className="switch-row" style={{ marginTop: 5 }}>
-                <p className="muted-2">{published ? "Publicado no catálogo" : "Rascunho — não aparece pros assinantes"}</p>
-                <label className="switch">
-                  <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} aria-label="Publicado no catálogo" />
-                  <span className="switch-track" aria-hidden="true" />
-                  <span className="switch-thumb" aria-hidden="true" />
-                </label>
+              <div className="choice-row" style={{ marginTop: 5 }} role="group" aria-label="Status do curso">
+                <button
+                  type="button"
+                  className={`choice${!published ? " is-on" : ""}`}
+                  disabled={publishing || saving}
+                  onClick={() => void persistPublished(false)}
+                >
+                  Rascunho
+                  <small>Não aparece no catálogo</small>
+                </button>
+                <button
+                  type="button"
+                  className={`choice${published ? " is-on" : ""}`}
+                  disabled={publishing || saving}
+                  onClick={() => void persistPublished(true)}
+                >
+                  Publicado
+                  <small>Visível pros assinantes</small>
+                </button>
               </div>
             </div>
           </div>

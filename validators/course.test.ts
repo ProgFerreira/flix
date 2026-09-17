@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { courseWriteSchema, curriculumSchema, courseSlugSchema } from "@/validators/course"
+import { courseWriteSchema, coursePatchSchema, curriculumSchema, courseSlugSchema } from "@/validators/course"
 
 describe("courseWriteSchema", () => {
   it("accepts a title without forcing plan defaults on the payload", () => {
@@ -13,6 +13,12 @@ describe("courseWriteSchema", () => {
   it("rejects an invalid slug", () => {
     const parsed = courseWriteSchema.safeParse({ title: "Aula", slug: "Módulo 1" })
     expect(parsed.success).toBe(false)
+  })
+})
+
+describe("coursePatchSchema", () => {
+  it("keeps published true without requiring a title", () => {
+    expect(coursePatchSchema.parse({ published: true })).toEqual({ published: true })
   })
 })
 

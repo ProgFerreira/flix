@@ -123,6 +123,27 @@ describe("PATCH /api/admin/courses/[id]", () => {
       targetType: "course",
       targetId: 4,
     }))
+    expect(prisma.course.update).toHaveBeenCalledWith({
+      where: { id: 4 },
+      data: expect.objectContaining({ published: true, requiredPlan: "premium", title: "Trilha de corte" }),
+    })
+  })
+
+  it("publishes a course with only the published flag", async () => {
+    requireAdmin.mockResolvedValue({ userId: 1 })
+    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Vendas" })
+    prisma.course.update.mockResolvedValue({ id: 4, title: "Vendas", published: true })
+    const { PATCH } = await import("@/app/api/admin/courses/[id]/route")
+    const res = await PATCH(new NextRequest("http://localhost/api/admin/courses/4", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published: true }),
+    }), params)
+    expect(res.status).toBe(200)
+    expect(prisma.course.update).toHaveBeenCalledWith({
+      where: { id: 4 },
+      data: { published: true },
+    })
   })
 })
 

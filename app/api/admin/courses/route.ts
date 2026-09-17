@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(paginated(
     courses.map(({ modules, ...course }) => ({
       ...course,
+      published: Boolean(course.published),
       lessonCount: lessonCountFrom(modules),
       moduleCount: modules.length,
     })),

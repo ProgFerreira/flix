@@ -189,7 +189,7 @@ test.describe.serial("Admin de cursos", () => {
     await page.getByRole("button", { name: "Adicionar aula de texto" }).click()
     await expect(page.getByText(articleTitle, { exact: true })).toBeVisible()
 
-    await page.getByLabel("Publicado no catálogo").check()
+    await page.getByRole("button", { name: /^Publicado/ }).click()
     await page.getByRole("button", { name: "Salvar curso" }).click()
     await expect(page.getByRole("status").filter({ hasText: "Curso salvo" }).first()).toBeVisible()
     await expect(page.getByRole("button", { name: "Curso salvo" })).toBeVisible()
