@@ -10,6 +10,7 @@ import {
   isEligibleCourseLesson,
   mergeLessonSeconds,
   parseLearnings,
+  isArticleSource,
 } from "@/lib/course"
 
 describe("slugifyCourseTitle", () => {
@@ -41,6 +42,18 @@ describe("isLessonComplete", () => {
   it("does not complete lessons without duration", () => {
     expect(isLessonComplete(400, null)).toBe(false)
     expect(isLessonComplete(0, "10:00")).toBe(false)
+  })
+
+  it("completes a written lesson at the sentinel duration", () => {
+    expect(isLessonComplete(60, "1:00")).toBe(true)
+  })
+})
+
+describe("isArticleSource", () => {
+  it("recognizes written lessons", () => {
+    expect(isArticleSource("article")).toBe(true)
+    expect(isArticleSource("upload")).toBe(false)
+    expect(isArticleSource(undefined)).toBe(false)
   })
 })
 

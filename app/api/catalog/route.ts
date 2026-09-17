@@ -58,12 +58,13 @@ export async function GET(req: NextRequest) {
     // Link do YouTube só entra no catálogo quando publicado; arquivo pode ser rascunho.
     // Upload em processing/error também aparece pra o dono acompanhar o FFmpeg.
     filters.push({ OR: [{ published: true }, { source: "upload" }] })
+    filters.push({ source: { in: ["youtube", "upload"] } })
   } else {
     filters.push({ status: "ready" })
     filters.push({ published: true })
+    filters.push({ source: { in: ["youtube", "upload"] } })
     if (!requestedId) {
       const taken = await prisma.courseLesson.findMany({
-        where: { module: { course: { published: true } } },
         select: { videoId: true },
       })
       if (taken.length > 0) {

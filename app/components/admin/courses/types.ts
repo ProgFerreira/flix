@@ -9,7 +9,15 @@ export type AdminCourse = {
   moduleCount: number
 }
 
-export type LessonDraft = { videoId: number; title: string; thumbnail: string; duration: string | null }
+export type LessonDraft = {
+  videoId: number
+  title: string
+  thumbnail: string
+  duration: string | null
+  source?: "youtube" | "upload" | "article"
+  notes?: string | null
+  status?: string
+}
 export type ModuleDraft = { key: string; title: string; lessons: LessonDraft[] }
 
 export type PickerVideo = {
@@ -19,5 +27,7 @@ export type PickerVideo = {
   duration: string | null
   requiredPlan: string
   published: boolean
+  source?: "youtube" | "upload" | "article"
+  status?: string
   inThisCourse: boolean
 }

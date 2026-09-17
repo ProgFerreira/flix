@@ -9,7 +9,7 @@ export type ContinueVideo = {
   thumbnail: string
   duration: string | null
   channelName: string | null
-  source: "youtube" | "upload"
+  source: "youtube" | "upload" | "article"
   videoId: string | null
   requiredPlan: string
   published: boolean

@@ -159,7 +159,7 @@ describe("GET /api/catalog", () => {
     expect(json.items[0]).not.toHaveProperty("userId")
   })
 
-  it("excludes videos that belong to a published course", async () => {
+  it("excludes videos that already belong to a course", async () => {
     optionalUserId.mockResolvedValue(null)
     canAccessCatalogVideo.mockReturnValue(true)
     prisma.courseLesson.findMany.mockResolvedValue([{ videoId: 9 }])
@@ -168,8 +168,12 @@ describe("GET /api/catalog", () => {
     const { GET } = await import("@/app/api/catalog/route")
     const res = await GET(new NextRequest("http://localhost/api/catalog"))
     expect(res.status).toBe(200)
+    expect(prisma.courseLesson.findMany).toHaveBeenCalledWith({ select: { videoId: true } })
     expect(prisma.video.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { AND: expect.arrayContaining([{ id: { notIn: [9] } }]) },
+      where: { AND: expect.arrayContaining([
+        { id: { notIn: [9] } },
+        { source: { in: ["youtube", "upload"] } },
+      ]) },
     }))
   })
 

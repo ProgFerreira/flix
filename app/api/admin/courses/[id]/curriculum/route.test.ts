@@ -7,7 +7,7 @@ const prisma = {
   course: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
   courseModule: { deleteMany: vi.fn(), create: vi.fn() },
   courseLesson: { findMany: vi.fn() },
-  video: { findMany: vi.fn() },
+  video: { findMany: vi.fn(), updateMany: vi.fn() },
   $transaction: vi.fn(),
 }
 
@@ -28,6 +28,7 @@ describe("PUT /api/admin/courses/[id]/curriculum", () => {
     prisma.courseModule.deleteMany.mockReset()
     prisma.courseModule.create.mockReset()
     prisma.video.findMany.mockReset()
+    prisma.video.updateMany.mockReset()
     prisma.courseLesson.findMany.mockReset()
     prisma.$transaction.mockReset()
   })
@@ -45,7 +46,7 @@ describe("PUT /api/admin/courses/[id]/curriculum", () => {
 
   it("rejects a video that already belongs to another course", async () => {
     requireAdmin.mockResolvedValue({ userId: 1 })
-    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte" })
+    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte", requiredPlan: "premium" })
     prisma.video.findMany.mockResolvedValue([{ id: 11 }])
     prisma.courseLesson.findMany.mockResolvedValue([{ videoId: 11 }])
     const { PUT } = await import("@/app/api/admin/courses/[id]/curriculum/route")
@@ -60,7 +61,7 @@ describe("PUT /api/admin/courses/[id]/curriculum", () => {
 
   it("rejects the same lesson twice in one payload", async () => {
     requireAdmin.mockResolvedValue({ userId: 1 })
-    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte" })
+    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte", requiredPlan: "premium" })
     const { PUT } = await import("@/app/api/admin/courses/[id]/curriculum/route")
     const res = await PUT(new NextRequest("http://localhost/api/admin/courses/4/curriculum", {
       method: "PUT",
@@ -76,7 +77,7 @@ describe("PUT /api/admin/courses/[id]/curriculum", () => {
 
   it("rejects a lesson that does not exist", async () => {
     requireAdmin.mockResolvedValue({ userId: 1 })
-    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte" })
+    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte", requiredPlan: "premium" })
     prisma.video.findMany.mockResolvedValue([])
     const { PUT } = await import("@/app/api/admin/courses/[id]/curriculum/route")
     const res = await PUT(new NextRequest("http://localhost/api/admin/courses/4/curriculum", {
@@ -91,7 +92,7 @@ describe("PUT /api/admin/courses/[id]/curriculum", () => {
 
   it("replaces the curriculum and writes audit", async () => {
     requireAdmin.mockResolvedValue({ userId: 1 })
-    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte" })
+    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte", requiredPlan: "premium" })
     prisma.video.findMany.mockResolvedValue([{ id: 11 }])
     prisma.courseLesson.findMany.mockResolvedValue([])
     prisma.courseModule.deleteMany.mockResolvedValue({ count: 1 })
@@ -101,6 +102,7 @@ describe("PUT /api/admin/courses/[id]/curriculum", () => {
       title: "Corte",
       modules: [{ title: "Início", lessons: [{ videoId: 11 }] }],
     })
+    prisma.video.updateMany.mockResolvedValue({ count: 1 })
     prisma.$transaction.mockImplementation(async (fn) => fn(prisma))
     const { PUT } = await import("@/app/api/admin/courses/[id]/curriculum/route")
     const res = await PUT(new NextRequest("http://localhost/api/admin/courses/4/curriculum", {
@@ -109,6 +111,10 @@ describe("PUT /api/admin/courses/[id]/curriculum", () => {
       body: JSON.stringify({ modules: [{ title: "Início", lessons: [{ videoId: 11 }] }] }),
     }), { params: Promise.resolve({ id: "4" }) })
     expect(res.status).toBe(200)
+    expect(prisma.video.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: [11] }, published: false },
+      data: { published: true, requiredPlan: "premium" },
+    })
     expect(prisma.courseModule.deleteMany).toHaveBeenCalledWith({ where: { courseId: 4 } })
     expect(prisma.courseModule.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({

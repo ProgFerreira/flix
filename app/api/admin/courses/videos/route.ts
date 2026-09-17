@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const videos = await prisma.video.findMany({
     where: {
       AND: [
+        { source: { in: ["youtube", "upload"] } },
         { OR: [{ published: true }, { source: "upload" }] },
         ...(q ? [{ title: { contains: q } }] : []),
         {

@@ -26,7 +26,7 @@ type CatalogVideo = {
   duration?: string | null; channelName?: string | null
   createdAt: string; requiredPlan: string; locked: boolean
   favorited?: boolean; progressSeconds?: number
-  source: "youtube" | "upload"
+  source: "youtube" | "upload" | "article"
   videoId?: string | null
   published: boolean
   mine?: boolean

@@ -168,20 +168,26 @@ test.describe.serial("Admin de cursos", () => {
     await page.getByRole("button", { name: "Adicionar aula" }).first().click()
     const picker = page.getByRole("dialog")
     await expect(picker).toBeVisible()
+    await picker.getByRole("tab", { name: "Já enviado" }).click()
     await expect(picker.getByText(takenLesson.title, { exact: true })).toHaveCount(0)
     await page.getByLabel("Buscar aula do catálogo").fill(lessonA.title)
     await picker.getByRole("button", { name: lessonA.title }).click()
     await expect(page.getByText(lessonA.title, { exact: true })).toBeVisible()
 
     await page.getByRole("button", { name: "Adicionar aula" }).first().click()
+    await page.getByRole("tab", { name: "Já enviado" }).click()
     await page.getByLabel("Buscar aula do catálogo").fill("zzzz-sem-aula")
-    await expect(page.getByText("Nenhuma aula disponível. Envie em Vídeos autorais.")).toBeVisible()
+    await expect(page.getByText("Nenhuma aula disponível. Envie um arquivo, cole uma URL ou escreva o texto.")).toBeVisible()
     await page.getByRole("button", { name: "Fechar diálogo" }).click()
 
+    const articleTitle = `Aula escrita ${suffix}`
     await page.getByRole("button", { name: "Adicionar aula" }).nth(1).click()
-    await expect(page.getByRole("dialog").getByText(lessonA.title, { exact: true })).toHaveCount(0)
-    await page.getByLabel("Buscar aula do catálogo").fill(lessonB.title)
-    await page.getByRole("dialog").getByRole("button", { name: lessonB.title }).click()
+    await expect(page.getByRole("dialog").getByRole("tab", { name: "Texto" })).toBeVisible()
+    await page.getByRole("tab", { name: "Texto" }).click()
+    await page.getByLabel("Título da aula").fill(articleTitle)
+    await page.getByLabel("Material escrito").fill("Como avançar\n\n01\nCorte: alinha o tecido")
+    await page.getByRole("button", { name: "Adicionar aula de texto" }).click()
+    await expect(page.getByText(articleTitle, { exact: true })).toBeVisible()
 
     await page.getByLabel("Publicado no catálogo").check()
     await page.getByRole("button", { name: "Salvar curso" }).click()
@@ -193,24 +199,28 @@ test.describe.serial("Admin de cursos", () => {
         where: { title: courseTitle },
         include: { modules: { orderBy: { sortOrder: "asc" }, include: { lessons: { orderBy: { sortOrder: "asc" } } } } },
       })
-      if (!row?.published) return null
+      if (!row?.published || row.modules.length < 2) return null
+      const articleId = row.modules[1]?.lessons[0]?.videoId
+      const article = articleId ? await prisma.video.findUnique({ where: { id: articleId } }) : null
       return {
         plan: row.requiredPlan,
         description: row.description,
         learnings: row.learnings,
-        modules: row.modules.map((module) => ({
-          title: module.title,
-          videos: module.lessons.map((lesson) => lesson.videoId),
-        })),
+        module1: row.modules[0]?.lessons.map((lesson) => lesson.videoId) ?? [],
+        module2Title: row.modules[1]?.title,
+        articleSource: article?.source ?? null,
+        articleTitle: article?.title ?? null,
+        articlePublished: article?.published ?? null,
       }
     }).toEqual({
       plan: "premium",
       description: "Trilha montada no teste E2E",
       learnings: "Cortar tecidos\nCosturar peças",
-      modules: [
-        { title: "Fundamentos", videos: [lessonA.id] },
-        { title: "Avançado", videos: [lessonB.id] },
-      ],
+      module1: [lessonA.id],
+      module2Title: "Avançado",
+      articleSource: "article",
+      articleTitle,
+      articlePublished: true,
     })
 
     const course = await prisma.course.findFirstOrThrow({ where: { title: courseTitle } })
@@ -230,9 +240,13 @@ test.describe.serial("Admin de cursos", () => {
     await page.getByRole("link", { name: "Iniciar curso" }).click()
     await expect(page).toHaveURL(new RegExp(`/catalogo/cursos/${course.slug}\\?aula=${lessonA.id}$`))
     await expect(page.getByRole("heading", { name: lessonA.title })).toBeVisible()
+    await expect(page.locator("iframe")).toBeVisible()
     await expect(page.getByRole("button", { name: "Próxima aula" })).toBeVisible()
     await page.getByRole("button", { name: "Próxima aula" }).click()
-    await expect(page.getByRole("heading", { name: lessonB.title })).toBeVisible()
+    await expect(page.getByRole("heading", { name: articleTitle })).toBeVisible()
+    await expect(page.locator("iframe")).toHaveCount(0)
+    await expect(page.locator("video")).toHaveCount(0)
+    await expect(page.getByText("Como avançar")).toBeVisible()
 
     await page.getByRole("link", { name: "Voltar ao curso" }).click()
     await expect(page).toHaveURL(new RegExp(`/catalogo/cursos/${course.slug}$`))
@@ -262,6 +276,6 @@ test.describe.serial("Admin de cursos", () => {
 
     expect(await prisma.course.findUnique({ where: { id: course.id } })).toBeNull()
     expect(await prisma.video.findUnique({ where: { id: lessonA.id } })).toBeTruthy()
-    expect(await prisma.video.findUnique({ where: { id: lessonB.id } })).toBeTruthy()
+    expect(await prisma.video.findFirst({ where: { title: articleTitle } })).toBeTruthy()
   })
 })

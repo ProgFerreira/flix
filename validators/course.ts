@@ -46,6 +46,35 @@ export const curriculumSchema = z.object({
   })).max(50),
 })
 
+const lessonTitleSchema = z.string().trim().min(1, "Título obrigatório").max(200)
+
+export const courseLessonYoutubeSchema = z.object({
+  kind: z.literal("youtube"),
+  title: lessonTitleSchema,
+  url: z.string().trim().url("URL inválida").max(500),
+  requiredPlan: planSchema.optional(),
+})
+
+export const courseLessonArticleSchema = z.object({
+  kind: z.literal("article"),
+  title: lessonTitleSchema,
+  body: z.string().trim().min(1, "Texto obrigatório").max(20000),
+  requiredPlan: planSchema.optional(),
+})
+
+export const courseLessonJsonSchema = z.discriminatedUnion("kind", [
+  courseLessonYoutubeSchema,
+  courseLessonArticleSchema,
+])
+
+export const courseLessonUploadSchema = z.object({
+  title: lessonTitleSchema,
+  requiredPlan: z.enum(["free", "premium", "pro"]).default("free"),
+})
+
+export type CourseLessonJsonInput = z.infer<typeof courseLessonJsonSchema>
+export type CourseLessonUploadInput = z.infer<typeof courseLessonUploadSchema>
+
 export function slugFromCourseInput(title: string, slug?: string): string {
   return slug ?? slugifyCourseTitle(title)
 }

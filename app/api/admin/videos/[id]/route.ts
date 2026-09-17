@@ -27,7 +27,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     where: { id: Number(id) },
     select: { source: true, userId: true },
   })
-  if (!existing || existing.source !== "upload") return NextResponse.json({ error: "Vídeo não encontrado" }, { status: 404 })
+  if (!existing || (existing.source !== "upload" && existing.source !== "article")) {
+    return NextResponse.json({ error: "Vídeo não encontrado" }, { status: 404 })
+  }
 
   const body = await req.json()
   const parsed = patchSchema.safeParse(body)

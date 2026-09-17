@@ -56,7 +56,7 @@ export type CourseLessonVideo = {
   thumbnail: string
   duration: string | null
   channelName: string | null
-  source: "youtube" | "upload"
+  source: "youtube" | "upload" | "article"
   videoId: string | null
   published: boolean
   status: string

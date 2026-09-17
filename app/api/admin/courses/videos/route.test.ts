@@ -64,6 +64,7 @@ describe("GET /api/admin/courses/videos", () => {
     expect(prisma.video.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         AND: expect.arrayContaining([
+          { source: { in: ["youtube", "upload"] } },
           { title: { contains: "aula" } },
         ]),
       }),

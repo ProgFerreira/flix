@@ -5,7 +5,7 @@ import { hasVideoGrant } from "@/lib/video-grants"
 
 type CatalogVideoRow = {
   id: number
-  source: "youtube" | "upload"
+  source: "youtube" | "upload" | "article"
   published: boolean
   requiredPlan: string
   userId: number

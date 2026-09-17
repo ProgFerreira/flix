@@ -45,6 +45,7 @@ enum PaymentMethod {
 enum VideoSource {
   youtube
   upload
+  article
 }
 
 enum VideoStatus {

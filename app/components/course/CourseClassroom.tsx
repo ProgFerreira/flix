@@ -9,7 +9,7 @@ import { VideoThumb } from "@/app/components/VideoThumb"
 import { LessonArticle } from "@/app/components/course/LessonArticle"
 import { LessonVideo } from "@/app/components/course/LessonVideo"
 import { loginHref } from "@/lib/auth-redirect"
-import { isLessonComplete, mergeLessonSeconds } from "@/lib/course"
+import { isArticleSource, isLessonComplete, mergeLessonSeconds, ARTICLE_COMPLETE_SECONDS } from "@/lib/course"
 
 export type ClassroomLesson = {
   id: number
@@ -17,7 +17,7 @@ export type ClassroomLesson = {
   thumbnail: string
   duration: string | null
   channelName: string | null
-  source: "youtube" | "upload"
+  source: "youtube" | "upload" | "article"
   videoId: string | null
   requiredPlan: string
   published: boolean
@@ -112,11 +112,25 @@ export function CourseClassroom({
   const prevLesson = playableIndex > 0 ? playable[playableIndex - 1] : null
   const nextLesson = playableIndex >= 0 && playableIndex < playable.length - 1 ? playable[playableIndex + 1] : null
   const currentLessonId = current?.id ?? null
+  const currentIsArticle = isArticleSource(current?.source)
 
   const onLessonProgress = useCallback((seconds: number) => {
     if (currentLessonId == null) return
     setSecondsById((prev) => mergeLessonSeconds(prev, currentLessonId, seconds))
   }, [currentLessonId])
+
+  useEffect(() => {
+    if (!current || !currentIsArticle || current.locked || isPreview || !isLoggedIn) return
+    const already = isLessonComplete(secondsById[current.id] ?? current.progressSeconds, current.duration)
+    if (already) return
+    const seconds = ARTICLE_COMPLETE_SECONDS
+    setSecondsById((prev) => mergeLessonSeconds(prev, current.id, seconds))
+    void fetch(`/api/catalog/${current.id}/progress`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seconds }),
+    }).catch(() => undefined)
+  }, [current, currentIsArticle, isLoggedIn, isPreview, secondsById])
 
   const goLesson = (lesson: ClassroomLesson, play: boolean) => {
     setNavOpen(false)
@@ -183,7 +197,9 @@ export function CourseClassroom({
                         const blocked = lessonBlocked(lesson)
                         const label = lesson.locked
                           ? `${lesson.title} (bloqueado)`
-                          : `Assistir ${lesson.title}`
+                          : isArticleSource(lesson.source)
+                            ? `Ler ${lesson.title}`
+                            : `Assistir ${lesson.title}`
                         return (
                           <li key={lesson.id}>
                             <button
@@ -250,11 +266,11 @@ export function CourseClassroom({
                   <VideoThumb src={current.thumbnail} alt={current.title} sizes="(max-width: 900px) 100vw, 860px" />
                   <p className="classroom-lock-msg">{current.status === "error" ? "Esta aula não pôde ser processada." : "Esta aula ainda está sendo processada."}</p>
                 </div>
-              ) : (
+              ) : currentIsArticle ? null : (
                 <LessonVideo
                   id={current.id}
                   title={current.title}
-                  source={current.source}
+                  source={current.source === "upload" ? "upload" : "youtube"}
                   videoId={current.videoId}
                   startSeconds={secondsById[current.id] ?? current.progressSeconds}
                   qualities={current.qualities}

@@ -8,7 +8,7 @@ export type PlaylistItem = {
   videoId?: string | null
   title: string
   channelName?: string | null
-  source?: "youtube" | "upload"
+  source?: "youtube" | "upload" | "article"
   startSeconds?: number
   qualities?: string[]
 }

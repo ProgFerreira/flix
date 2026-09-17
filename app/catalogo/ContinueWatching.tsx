@@ -10,7 +10,7 @@ export type ContinueItem = {
   thumbnail: string
   duration?: string | null
   channelName?: string | null
-  source: "youtube" | "upload"
+  source: "youtube" | "upload" | "article"
   videoId?: string | null
   progressSeconds: number
   progressPercent: number | null

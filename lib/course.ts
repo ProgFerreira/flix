@@ -2,6 +2,16 @@ import { CONTINUE_DONE_RATIO, CONTINUE_MIN_SECONDS, durationToSeconds } from "@/
 
 export const COURSE_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
+export type LessonVideoSource = "youtube" | "upload" | "article"
+
+/** Duração sentinela pra aula de texto contar no progresso do curso. */
+export const ARTICLE_LESSON_DURATION = "1:00"
+export const ARTICLE_COMPLETE_SECONDS = 60
+
+export function isArticleSource(source: string | null | undefined): source is "article" {
+  return source === "article"
+}
+
 /** Vídeos que já estão numa trilha publicada somem da grade de avulsas. */
 export const inPublishedCourseWhere = {
   courseLesson: {

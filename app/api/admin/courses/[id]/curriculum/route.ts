@@ -30,7 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos" }, { status: 400 })
   }
 
-  const exists = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true, title: true } })
+  const exists = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true, title: true, requiredPlan: true } })
   if (!exists) return NextResponse.json({ error: "Curso não encontrado" }, { status: 404 })
 
   const videoIds = parsed.data.modules.flatMap((module) => module.lessons.map((lesson) => lesson.videoId))
@@ -71,6 +71,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               })),
             },
           },
+        })
+      }
+      if (videoIds.length > 0) {
+        await tx.video.updateMany({
+          where: { id: { in: videoIds }, published: false },
+          data: { published: true, requiredPlan: exists.requiredPlan },
         })
       }
       return tx.course.findUniqueOrThrow({

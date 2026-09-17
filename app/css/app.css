@@ -2342,6 +2342,16 @@ a.video-card-thumb { display: block; }
   flex-shrink: 0;
 }
 
+.course-lesson-thumb.is-article {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
 .course-lesson-body {
   min-width: 0;
   flex: 1;

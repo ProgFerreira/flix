@@ -1,8 +1,9 @@
 "use client"
 
 import { Draggable, Droppable } from "@hello-pangea/dnd"
-import { GripVertical, Plus, Trash2 } from "lucide-react"
+import { FileText, GripVertical, Pencil, Plus, Trash2 } from "lucide-react"
 import { VideoThumb } from "@/app/components/VideoThumb"
+import { isArticleSource } from "@/lib/course"
 import type { ModuleDraft } from "@/app/components/admin/courses/types"
 
 type Props = {
@@ -12,9 +13,10 @@ type Props = {
   onRemoveModule: () => void
   onRemoveLesson: (videoId: number) => void
   onOpenPicker: () => void
+  onEditLesson: (videoId: number) => void
 }
 
-export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRemoveLesson, onOpenPicker }: Props) {
+export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRemoveLesson, onOpenPicker, onEditLesson }: Props) {
   return (
     <Draggable draggableId={module.key} index={index}>
       {(dragProvided) => (
@@ -41,16 +43,27 @@ export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRem
                     <Draggable key={lesson.videoId} draggableId={`lesson-${lesson.videoId}`} index={lessonIndex}>
                       {(lp) => (
                         <li ref={lp.innerRef} {...lp.draggableProps} style={lp.draggableProps.style as React.CSSProperties} className="course-lesson">
-                          <div className="video-card-thumb course-lesson-thumb">
-                            <VideoThumb src={lesson.thumbnail} alt={lesson.title} sizes="160px" />
+                          <div className={`video-card-thumb course-lesson-thumb${isArticleSource(lesson.source) ? " is-article" : ""}`}>
+                            {isArticleSource(lesson.source) ? (
+                              <FileText size={22} aria-hidden />
+                            ) : (
+                              <VideoThumb src={lesson.thumbnail} alt={lesson.title} sizes="160px" />
+                            )}
                             <span {...lp.dragHandleProps} className="thumb-drag" aria-label={`Reordenar ${lesson.title}`}>
                               <GripVertical size={12} color="#fff" />
                             </span>
                           </div>
                           <span className="course-lesson-body">
                             <strong>{lesson.title}</strong>
-                            {lesson.duration && <span className="muted-2">{lesson.duration}</span>}
+                            {lesson.status === "processing" && <span className="muted-2">Processando vídeo...</span>}
+                            {lesson.duration && !isArticleSource(lesson.source) && <span className="muted-2">{lesson.duration}</span>}
+                            {isArticleSource(lesson.source) && <span className="muted-2">Material escrito</span>}
                           </span>
+                          {isArticleSource(lesson.source) && (
+                            <button type="button" className="btn btn-ghost btn-compact" onClick={() => onEditLesson(lesson.videoId)}>
+                              <Pencil size={14} /> Editar
+                            </button>
+                          )}
                           <button type="button" className="btn btn-ghost btn-compact" onClick={() => onRemoveLesson(lesson.videoId)}>
                             Remover
                           </button>

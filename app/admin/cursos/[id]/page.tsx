@@ -11,7 +11,7 @@ import { VideoThumb } from "@/app/components/VideoThumb"
 import { apiErrorMessage, apiRequest } from "@/lib/api-client"
 import { slugifyCourseTitle } from "@/lib/course"
 import { ModuleCard } from "@/app/components/admin/courses/ModuleCard"
-import { LessonPickerModal } from "@/app/components/admin/courses/LessonPickerModal"
+import { LessonCreateModal } from "@/app/components/admin/courses/LessonCreateModal"
 import type { LessonDraft, ModuleDraft, PickerVideo } from "@/app/components/admin/courses/types"
 import { Check, ChevronLeft, Eye, Plus } from "lucide-react"
 
@@ -25,7 +25,7 @@ type CourseDetail = {
   requiredPlan: "free" | "premium" | "pro"
   published: boolean
   sortOrder: number
-  modules: { id: number; title: string; lessons: { video: LessonDraft & { id: number } }[] }[]
+  modules: { id: number; title: string; lessons: { video: LessonDraft & { id: number; source?: LessonDraft["source"]; notes?: string | null; status?: string } }[] }[]
 }
 
 function newKey() {
@@ -54,6 +54,7 @@ export default function AdminCourseEditorPage() {
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
   const [pickerModule, setPickerModule] = useState<string | null>(null)
   const [pickerQ, setPickerQ] = useState("")
+  const [editingLesson, setEditingLesson] = useState<{ moduleKey: string; lesson: LessonDraft } | null>(null)
   const [delOpen, setDelOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const hydratedId = useRef<number | null>(null)
@@ -96,6 +97,9 @@ export default function AdminCourseEditorPage() {
         title: lesson.video.title,
         thumbnail: lesson.video.thumbnail,
         duration: lesson.video.duration,
+        source: lesson.video.source,
+        notes: lesson.video.notes ?? null,
+        status: lesson.video.status,
       })),
     })))
   }, [query.data])
@@ -194,15 +198,26 @@ export default function AdminCourseEditorPage() {
     })
   }
 
-  const addLesson = (moduleKey: string, video: PickerVideo) => {
-    if (selectedIds.has(video.id)) return
+  const addLesson = (moduleKey: string, lesson: LessonDraft) => {
+    if (selectedIds.has(lesson.videoId)) return
     setModules((current) => current.map((module) => (
       module.key === moduleKey
-        ? { ...module, lessons: [...module.lessons, { videoId: video.id, title: video.title, thumbnail: video.thumbnail, duration: video.duration }] }
+        ? { ...module, lessons: [...module.lessons, lesson] }
         : module
     )))
     setPickerModule(null)
     setPickerQ("")
+  }
+
+  const addPickedVideo = (moduleKey: string, video: PickerVideo) => {
+    addLesson(moduleKey, {
+      videoId: video.id,
+      title: video.title,
+      thumbnail: video.thumbnail,
+      duration: video.duration,
+      source: video.source,
+      status: video.status,
+    })
   }
 
   if (status === "loading" || query.isLoading) {
@@ -230,7 +245,7 @@ export default function AdminCourseEditorPage() {
               <ChevronLeft size={14} /> Cursos
             </button>
             <h1 className="page-title">Editar curso</h1>
-            <p className="page-sub">O upload das aulas continua em Vídeos autorais. Aqui você monta a capa e a trilha.</p>
+            <p className="page-sub">Monte a capa, os módulos e crie as aulas aqui — arquivo, URL do YouTube ou texto.</p>
           </div>
           <div className="page-head-actions">
             {slug.trim() && (
@@ -357,7 +372,13 @@ export default function AdminCourseEditorPage() {
                       onTitleChange={(value) => setModules((current) => current.map((row) => row.key === module.key ? { ...row, title: value } : row))}
                       onRemoveModule={() => setModules((current) => current.filter((row) => row.key !== module.key))}
                       onRemoveLesson={(videoId) => setModules((current) => current.map((row) => row.key === module.key ? { ...row, lessons: row.lessons.filter((item) => item.videoId !== videoId) } : row))}
-                      onOpenPicker={() => { setPickerModule(module.key); setPickerQ("") }}
+                      onOpenPicker={() => { setPickerModule(module.key); setPickerQ(""); setEditingLesson(null) }}
+                      onEditLesson={(videoId) => {
+                        const lesson = module.lessons.find((item) => item.videoId === videoId)
+                        if (!lesson) return
+                        setPickerModule(module.key)
+                        setEditingLesson({ moduleKey: module.key, lesson })
+                      }}
                     />
                   ))}
                   {provided.placeholder}
@@ -369,14 +390,26 @@ export default function AdminCourseEditorPage() {
       </main>
 
       {activeModule && (
-        <LessonPickerModal
+        <LessonCreateModal
           moduleTitle={activeModule.title}
+          requiredPlan={requiredPlan}
           query={pickerQ}
           onQueryChange={setPickerQ}
           videos={pickerVideos}
           loading={picker.isLoading}
-          onPick={(video) => addLesson(activeModule.key, video)}
-          onClose={() => setPickerModule(null)}
+          onPick={(video) => addPickedVideo(activeModule.key, video)}
+          onCreated={(lesson) => addLesson(activeModule.key, lesson)}
+          editing={editingLesson?.moduleKey === activeModule.key ? editingLesson.lesson : null}
+          onEdited={(lesson) => {
+            setModules((current) => current.map((module) => (
+              module.key === activeModule.key
+                ? { ...module, lessons: module.lessons.map((item) => item.videoId === lesson.videoId ? lesson : item) }
+                : module
+            )))
+            setEditingLesson(null)
+            setPickerModule(null)
+          }}
+          onClose={() => { setPickerModule(null); setPickerQ(""); setEditingLesson(null) }}
         />
       )}
 
