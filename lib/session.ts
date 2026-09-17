@@ -74,6 +74,8 @@ export function calcNextBilling(billing: string): Date {
 
 // ── Hierarquia de planos (catálogo de vídeos autorais) ──────────────────
 export const PLAN_ORDER: Record<string, number> = { free: 0, premium: 1, pro: 2 }
+export const PLAN_NAMES = ["free", "premium", "pro"] as const
+export type UserPlanName = (typeof PLAN_NAMES)[number]
 
 export function planRank(plan: string): number {
   return PLAN_ORDER[plan] ?? 0
@@ -82,6 +84,37 @@ export function planRank(plan: string): number {
 /** true se `userPlan` dá acesso a conteúdo que exige `requiredPlan` */
 export function hasPlanAccess(userPlan: string, requiredPlan: string): boolean {
   return planRank(userPlan) >= planRank(requiredPlan)
+}
+
+/** Planos cujo conteúdo a pessoa já pode assistir (Free vê só Free, Premium vê Free+Premium). */
+export function plansCoveredBy(userPlan: string): UserPlanName[] {
+  const rank = planRank(userPlan)
+  return PLAN_NAMES.filter((plan) => planRank(plan) <= rank)
+}
+
+/**
+ * Filtro da aba Todos: esconde o que o plano não cobre.
+ * Chips Free/Premium/Pro e o deep link `?video=` ficam de fora — lá o card
+ * aparece travado com o CTA de upgrade. Admin e Pro não restringem.
+ */
+export function catalogVisiblePlanFilter(opts: {
+  requesterPlan: string
+  isAdmin: boolean
+  userId?: number | null
+  includeGrants?: boolean
+}): Record<string, unknown> | null {
+  if (opts.isAdmin) return null
+  const covered = plansCoveredBy(opts.requesterPlan)
+  if (covered.length === PLAN_NAMES.length) return null
+  const byPlan = { requiredPlan: { in: covered } }
+  const withGrants = opts.includeGrants ?? Boolean(opts.userId)
+  if (!withGrants || !opts.userId) return byPlan
+  return {
+    OR: [
+      byPlan,
+      { accessGrants: { some: { userId: opts.userId } } },
+    ],
+  }
 }
 
 export type CatalogVideoAccess = {

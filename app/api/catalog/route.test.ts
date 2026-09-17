@@ -29,13 +29,17 @@ const prisma = {
   courseLesson: { findMany: vi.fn() },
 }
 
-vi.mock("@/lib/session", () => ({
-  optionalUserId: (...args: unknown[]) => optionalUserId(...args),
-  requireUserId: (...args: unknown[]) => requireUserId(...args),
-  requireAdmin: (...args: unknown[]) => requireAdmin(...args),
-  syncSubscriptionStatus: (...args: unknown[]) => syncSubscriptionStatus(...args),
-  canAccessCatalogVideo: (...args: unknown[]) => canAccessCatalogVideo(...args),
-}))
+vi.mock("@/lib/session", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/session")>()
+  return {
+    ...actual,
+    optionalUserId: (...args: unknown[]) => optionalUserId(...args),
+    requireUserId: (...args: unknown[]) => requireUserId(...args),
+    requireAdmin: (...args: unknown[]) => requireAdmin(...args),
+    syncSubscriptionStatus: (...args: unknown[]) => syncSubscriptionStatus(...args),
+    canAccessCatalogVideo: (...args: unknown[]) => canAccessCatalogVideo(...args),
+  }
+})
 
 vi.mock("@/lib/audit", () => ({
   logAdminAction: (...args: unknown[]) => logAdminAction(...args),
@@ -83,6 +87,45 @@ describe("GET /api/catalog", () => {
     prisma.watchProgress.findMany.mockReset()
     prisma.courseLesson.findMany.mockReset()
     prisma.courseLesson.findMany.mockResolvedValue([])
+  })
+
+  it("limits the default catalog to videos covered by the viewer plan", async () => {
+    optionalUserId.mockResolvedValue(9)
+    syncSubscriptionStatus.mockResolvedValue(null)
+    prisma.user.findUnique.mockResolvedValue({ plan: "free", role: "user" })
+    canAccessCatalogVideo.mockReturnValue(true)
+    prisma.video.count.mockResolvedValue(0)
+    prisma.video.findMany.mockResolvedValue([])
+    grantedVideoIdsForUser.mockResolvedValue(new Set())
+    const { GET } = await import("@/app/api/catalog/route")
+    const res = await GET(new NextRequest("http://localhost/api/catalog"))
+    expect(res.status).toBe(200)
+    expect(prisma.video.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { AND: expect.arrayContaining([{
+        OR: [
+          { requiredPlan: { in: ["free"] } },
+          { accessGrants: { some: { userId: 9 } } },
+        ],
+      }]) },
+    }))
+  })
+
+  it("keeps a plan chip listing videos of that plan even when locked", async () => {
+    optionalUserId.mockResolvedValue(9)
+    syncSubscriptionStatus.mockResolvedValue(null)
+    prisma.user.findUnique.mockResolvedValue({ plan: "free", role: "user" })
+    canAccessCatalogVideo.mockReturnValue(false)
+    prisma.video.count.mockResolvedValue(0)
+    prisma.video.findMany.mockResolvedValue([])
+    grantedVideoIdsForUser.mockResolvedValue(new Set())
+    const { GET } = await import("@/app/api/catalog/route")
+    const res = await GET(new NextRequest("http://localhost/api/catalog?plan=pro"))
+    expect(res.status).toBe(200)
+    expect(prisma.video.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { AND: expect.arrayContaining([{ requiredPlan: "pro" }]) },
+    }))
+    const andFilter = prisma.video.findMany.mock.calls[0]?.[0]?.where?.AND as unknown[]
+    expect(andFilter.some((item) => item && typeof item === "object" && "OR" in item)).toBe(false)
   })
 
   it("lists published ready videos for a visitor and marks locked items", async () => {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { optionalUserId, requireAdmin, syncSubscriptionStatus, canAccessCatalogVideo } from "@/lib/session"
+import { optionalUserId, requireAdmin, syncSubscriptionStatus, canAccessCatalogVideo, catalogVisiblePlanFilter } from "@/lib/session"
 import { parsePageParams, paginated } from "@/lib/pagination"
 import { parseYouTubeVideoId } from "@/lib/youtube-url"
 import { getYouTubeThumbnail } from "@/lib/utils"
@@ -71,7 +71,16 @@ export async function GET(req: NextRequest) {
       }
     }
   }
-  if (plan && ["free", "premium", "pro"].includes(plan)) filters.push({ requiredPlan: plan })
+  if (plan && ["free", "premium", "pro"].includes(plan)) {
+    filters.push({ requiredPlan: plan })
+  } else if (!mine && !requestedId) {
+    const scope = catalogVisiblePlanFilter({
+      requesterPlan: requester?.plan ?? "free",
+      isAdmin: requester?.role === "admin",
+      userId,
+    })
+    if (scope) filters.push(scope)
+  }
   if (favorited && userId) filters.push({ favoritedBy: { some: { userId } } })
   if (q) {
     filters.push({

@@ -165,6 +165,25 @@ export default function CatalogoPage() {
     finally { setBusyId(null) }
   }
 
+  const changePlan = async (v: CatalogVideo, plan: string) => {
+    if (busyId !== null) return
+    setBusyId(v.id)
+    try {
+      const res = await fetch(`/api/catalog/${v.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requiredPlan: plan }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => null)
+        setFlash({ text: typeof d?.error === "string" ? d.error : "Não foi possível atualizar o plano", ok: false })
+        return
+      }
+      refresh()
+    } catch { setFlash({ text: "Falha de conexão. Tente novamente.", ok: false }) }
+    finally { setBusyId(null) }
+  }
+
   const togglePublished = async (v: CatalogVideo) => {
     if (busyId !== null) return
     setBusyId(v.id)
@@ -249,25 +268,23 @@ export default function CatalogoPage() {
           </div>
         </div>
 
-        {(meta.total > 0 || hasFilters) && (
-          <div className="filter-row">
-            {(["all", "free", "premium", "pro"] as const).map((p) => (
-              <button key={p} type="button" className={`chip${planFilter === p ? " is-active" : ""}`} onClick={() => setPlanFilter(p)}>
-                {p === "all" ? "Todos" : PLAN_LABEL[p]}
+        <div className="filter-row">
+          {(["all", "free", "premium", "pro"] as const).map((p) => (
+            <button key={p} type="button" className={`chip${planFilter === p ? " is-active" : ""}`} onClick={() => setPlanFilter(p)}>
+              {p === "all" ? "Todos" : PLAN_LABEL[p]}
+            </button>
+          ))}
+          {isLoggedIn && (
+            <>
+              <button type="button" className={`chip${onlyFav ? " is-active" : ""}`} onClick={() => setOnlyFav(!onlyFav)}>
+                Favoritos
               </button>
-            ))}
-            {isLoggedIn && (
-              <>
-                <button type="button" className={`chip${onlyFav ? " is-active" : ""}`} onClick={() => setOnlyFav(!onlyFav)}>
-                  Favoritos
-                </button>
-                <button type="button" className={`chip${onlyMine ? " is-active" : ""}`} onClick={() => setOnlyMine(!onlyMine)}>
-                  Meus
-                </button>
-              </>
-            )}
-          </div>
-        )}
+              <button type="button" className={`chip${onlyMine ? " is-active" : ""}`} onClick={() => setOnlyMine(!onlyMine)}>
+                Meus
+              </button>
+            </>
+          )}
+        </div>
 
         {!isLoggedIn && (
           <div className="banner">
@@ -283,7 +300,15 @@ export default function CatalogoPage() {
           <div className="empty">
             <Film size={40} className="empty-icon" />
             {hasFilters && <button className="btn btn-ghost" onClick={() => { setSearch(""); setPlanFilter("all"); setOnlyFav(false); setOnlyMine(false); setSelectedVideo("") }}>Limpar filtros</button>}
-            <p>{meta.total === 0 && !hasFilters ? (courses.length > 0 ? "Nenhuma aula avulsa neste filtro" : "Nenhum vídeo publicado ainda") : "Nenhum vídeo encontrado"}</p>
+            <p>
+              {meta.total === 0 && !hasFilters
+                ? (courses.length > 0
+                  ? "Nenhuma aula avulsa do seu plano"
+                  : isAdmin
+                    ? "Nenhum vídeo publicado ainda"
+                    : "Nenhuma aula do seu plano. Veja Premium ou Pro para desbloquear o restante.")
+                : "Nenhum vídeo encontrado"}
+            </p>
             {isAdmin && meta.total === 0 && courses.length === 0 && !hasFilters && (
               <>
                 <p className="page-sub">Publique um link do YouTube ou envie um arquivo MP4, WebM ou MOV.</p>
@@ -364,6 +389,18 @@ export default function CatalogoPage() {
                     {v.title.length > 58 ? v.title.slice(0, 58) + "…" : v.title}
                   </h3>
                   <div className="video-card-meta">
+                    {v.mine && (
+                      <select
+                        className="plan-select"
+                        data-plan={v.requiredPlan}
+                        value={v.requiredPlan}
+                        disabled={busyId !== null}
+                        aria-label={`Plano mínimo de ${v.title}`}
+                        onChange={(e) => void changePlan(v, e.target.value)}
+                      >
+                        {Object.entries(PLAN_LABEL).map(([k, l]) => <option key={k} value={k}>{l}+</option>)}
+                      </select>
+                    )}
                     {v.channelName && <span className="video-card-channel">{v.channelName}</span>}
                     {v.videoCategories.slice(0, 1).map((vc) => (
                       <span key={vc.category.id} className="cat-tag" style={{ ["--chip-color" as string]: vc.category.color }}>{vc.category.name}</span>

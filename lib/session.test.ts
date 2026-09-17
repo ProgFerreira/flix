@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { planRank, hasPlanAccess, computeSubscriptionStatus, effectivePlan, canAccessCatalogVideo, SUBSCRIPTION_GRACE_DAYS } from "@/lib/session"
+import { planRank, hasPlanAccess, plansCoveredBy, catalogVisiblePlanFilter, computeSubscriptionStatus, effectivePlan, canAccessCatalogVideo, SUBSCRIPTION_GRACE_DAYS } from "@/lib/session"
 
 describe("planRank / hasPlanAccess", () => {
   it("orders plans free < premium < pro", () => {
@@ -20,6 +20,29 @@ describe("planRank / hasPlanAccess", () => {
   it("denies access when user plan is below requirement", () => {
     expect(hasPlanAccess("free", "premium")).toBe(false)
     expect(hasPlanAccess("premium", "pro")).toBe(false)
+  })
+
+  it("lists only plans the viewer already pays for", () => {
+    expect(plansCoveredBy("free")).toEqual(["free"])
+    expect(plansCoveredBy("premium")).toEqual(["free", "premium"])
+    expect(plansCoveredBy("pro")).toEqual(["free", "premium", "pro"])
+  })
+
+  it("hides paid catalog rows from free viewers and visitors", () => {
+    expect(catalogVisiblePlanFilter({ requesterPlan: "free", isAdmin: false, userId: null })).toEqual({
+      requiredPlan: { in: ["free"] },
+    })
+    expect(catalogVisiblePlanFilter({ requesterPlan: "free", isAdmin: false, userId: 9 })).toEqual({
+      OR: [
+        { requiredPlan: { in: ["free"] } },
+        { accessGrants: { some: { userId: 9 } } },
+      ],
+    })
+  })
+
+  it("does not restrict the default catalog for admin or pro", () => {
+    expect(catalogVisiblePlanFilter({ requesterPlan: "free", isAdmin: true, userId: 1 })).toBeNull()
+    expect(catalogVisiblePlanFilter({ requesterPlan: "pro", isAdmin: false, userId: 4 })).toBeNull()
   })
 })
 

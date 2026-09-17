@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { optionalUserId, syncSubscriptionStatus } from "@/lib/session"
+import { optionalUserId, syncSubscriptionStatus, catalogVisiblePlanFilter } from "@/lib/session"
 import { parsePageParams, paginated } from "@/lib/pagination"
 import { courseCurriculumInclude, flattenCourseLessons } from "@/lib/course-query"
 import { publicCourseSummary } from "@/lib/course-public"
@@ -18,9 +18,17 @@ export async function GET(req: NextRequest) {
     requester = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, role: true } })
   }
 
+  const planScope = plan && ["free", "premium", "pro"].includes(plan)
+    ? { requiredPlan: plan as "free" | "premium" | "pro" }
+    : catalogVisiblePlanFilter({
+        requesterPlan: requester?.plan ?? "free",
+        isAdmin: requester?.role === "admin",
+        userId,
+        includeGrants: false,
+      })
   const where = {
     published: true,
-    ...(plan && ["free", "premium", "pro"].includes(plan) ? { requiredPlan: plan as "free" | "premium" | "pro" } : {}),
+    ...(planScope ?? {}),
   }
 
   const [total, courses] = await Promise.all([

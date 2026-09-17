@@ -60,7 +60,19 @@ describe("GET /api/catalog/courses", () => {
     prisma.user.findUnique.mockReset()
   })
 
-  it("lists published courses and locks premium for visitors", async () => {
+  it("limits the default course rail to plans the visitor already has", async () => {
+    optionalUserId.mockResolvedValue(null)
+    prisma.course.count.mockResolvedValue(0)
+    prisma.course.findMany.mockResolvedValue([])
+    const { GET } = await import("@/app/api/catalog/courses/route")
+    const res = await GET(new NextRequest("http://localhost/api/catalog/courses"))
+    expect(res.status).toBe(200)
+    expect(prisma.course.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ published: true, requiredPlan: { in: ["free"] } }),
+    }))
+  })
+
+  it("lists a paid course chip as locked for visitors", async () => {
     optionalUserId.mockResolvedValue(null)
     prisma.course.count.mockResolvedValue(1)
     prisma.course.findMany.mockResolvedValue([{
@@ -75,7 +87,7 @@ describe("GET /api/catalog/courses", () => {
       modules: [{ id: 1, title: "Início", sortOrder: 0, lessons: [freeLesson] }],
     }])
     const { GET } = await import("@/app/api/catalog/courses/route")
-    const res = await GET(new NextRequest("http://localhost/api/catalog/courses"))
+    const res = await GET(new NextRequest("http://localhost/api/catalog/courses?plan=premium"))
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.items[0].slug).toBe("corte")
