@@ -73,9 +73,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(user)
   } catch (err) {
     const code = err && typeof err === "object" && "code" in err ? String(err.code) : undefined
+    // DIAGNÓSTICO TEMPORÁRIO: expõe a mensagem crua do Prisma pra achar o
+    // motivo real do P2021 em produção (reverter depois de confirmar).
+    const rawMessage = err && typeof err === "object" && "message" in err ? String(err.message) : undefined
     console.error("[signup]", code, err)
     return NextResponse.json(
-      { error: "Não foi possível criar a conta. Verifique o banco de dados.", code },
+      { error: "Não foi possível criar a conta. Verifique o banco de dados.", code, rawMessage },
       { status: 500 },
     )
   }
