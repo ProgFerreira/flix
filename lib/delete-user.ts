@@ -23,6 +23,8 @@ export async function deleteUserAccount(userId: number) {
     await tx.videoShare.deleteMany({
       where: { OR: [{ fromUserId: userId }, { toUserId: userId }] },
     })
+    await tx.courseFavorite.deleteMany({ where: { userId } })
+    await tx.courseReview.deleteMany({ where: { userId } })
     await tx.video.deleteMany({ where: { userId } })
     await tx.passwordResetToken.deleteMany({ where: { userId } })
     await tx.emailVerificationToken.deleteMany({ where: { userId } })

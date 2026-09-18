@@ -7,7 +7,7 @@ const allocateCourseSlug = vi.fn()
 const prisma = {
   course: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
   courseModule: { deleteMany: vi.fn(), create: vi.fn() },
-  courseLesson: { findMany: vi.fn() },
+  courseLesson: { findMany: vi.fn(), findFirst: vi.fn() },
   video: { findMany: vi.fn(), delete: vi.fn() },
   $transaction: vi.fn(),
 }
@@ -69,6 +69,7 @@ describe("PATCH /api/admin/courses/[id]", () => {
     allocateCourseSlug.mockReset()
     prisma.course.findUnique.mockReset()
     prisma.course.update.mockReset()
+    prisma.courseLesson.findFirst.mockReset()
   })
 
   it("returns 403 for a non-admin", async () => {
@@ -144,6 +145,49 @@ describe("PATCH /api/admin/courses/[id]", () => {
       where: { id: 4 },
       data: { published: true },
     })
+  })
+
+  it("saves landing metadata and a trailer that belongs to the course", async () => {
+    requireAdmin.mockResolvedValue({ userId: 1 })
+    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte" })
+    prisma.courseLesson.findFirst.mockResolvedValue({ videoId: 11 })
+    prisma.course.update.mockResolvedValue({ id: 4, title: "Corte", slug: "corte" })
+    const { PATCH } = await import("@/app/api/admin/courses/[id]/route")
+    const res = await PATCH(new NextRequest("http://localhost/api/admin/courses/4", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instructorName: "Rener",
+        level: "beginner",
+        requirements: "Cadastro",
+        audience: "Iniciantes",
+        faq: "Tem certificado?\nAinda não.",
+        trailerVideoId: 11,
+      }),
+    }), params)
+    expect(res.status).toBe(200)
+    expect(prisma.course.update).toHaveBeenCalledWith({
+      where: { id: 4 },
+      data: expect.objectContaining({
+        instructorName: "Rener",
+        level: "beginner",
+        trailerVideoId: 11,
+      }),
+    })
+  })
+
+  it("rejects a trailer that is not a lesson of the course", async () => {
+    requireAdmin.mockResolvedValue({ userId: 1 })
+    prisma.course.findUnique.mockResolvedValue({ id: 4, title: "Corte" })
+    prisma.courseLesson.findFirst.mockResolvedValue(null)
+    const { PATCH } = await import("@/app/api/admin/courses/[id]/route")
+    const res = await PATCH(new NextRequest("http://localhost/api/admin/courses/4", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trailerVideoId: 99 }),
+    }), params)
+    expect(res.status).toBe(400)
+    expect(prisma.course.update).not.toHaveBeenCalled()
   })
 })
 

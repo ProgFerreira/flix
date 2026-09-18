@@ -4,6 +4,8 @@ const {
   collectionDeleteMany,
   collectionMemberDeleteMany,
   videoShareDeleteMany,
+  courseFavoriteDeleteMany,
+  courseReviewDeleteMany,
   videoDeleteMany,
   passwordResetDeleteMany,
   emailTokenDeleteMany,
@@ -15,6 +17,8 @@ const {
   collectionDeleteMany: vi.fn(),
   collectionMemberDeleteMany: vi.fn(),
   videoShareDeleteMany: vi.fn(),
+  courseFavoriteDeleteMany: vi.fn(),
+  courseReviewDeleteMany: vi.fn(),
   videoDeleteMany: vi.fn(),
   passwordResetDeleteMany: vi.fn(),
   emailTokenDeleteMany: vi.fn(),
@@ -32,6 +36,8 @@ vi.mock("@/lib/prisma", () => ({
         collection: { deleteMany: collectionDeleteMany },
         collectionMember: { deleteMany: collectionMemberDeleteMany },
         videoShare: { deleteMany: videoShareDeleteMany },
+        courseFavorite: { deleteMany: courseFavoriteDeleteMany },
+        courseReview: { deleteMany: courseReviewDeleteMany },
         video: { deleteMany: videoDeleteMany },
         passwordResetToken: { deleteMany: passwordResetDeleteMany },
         emailVerificationToken: { deleteMany: emailTokenDeleteMany },
@@ -60,6 +66,8 @@ describe("deleteUserAccount", () => {
     collectionDeleteMany.mockResolvedValue({ count: 1 })
     collectionMemberDeleteMany.mockResolvedValue({ count: 1 })
     videoShareDeleteMany.mockResolvedValue({ count: 2 })
+    courseFavoriteDeleteMany.mockResolvedValue({ count: 1 })
+    courseReviewDeleteMany.mockResolvedValue({ count: 1 })
     videoDeleteMany.mockResolvedValue({ count: 3 })
     passwordResetDeleteMany.mockResolvedValue({ count: 0 })
     emailTokenDeleteMany.mockResolvedValue({ count: 0 })
@@ -72,6 +80,8 @@ describe("deleteUserAccount", () => {
     await deleteUserAccount(7)
 
     expect(collectionDeleteMany).toHaveBeenCalledWith({ where: { ownerId: 7 } })
+    expect(courseFavoriteDeleteMany).toHaveBeenCalledWith({ where: { userId: 7 } })
+    expect(courseReviewDeleteMany).toHaveBeenCalledWith({ where: { userId: 7 } })
     expect(userUpdate).toHaveBeenCalledWith({
       where: { id: 7 },
       data: expect.objectContaining({

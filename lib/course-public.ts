@@ -2,9 +2,13 @@ import { serializeVideo } from "@/lib/serialize-video"
 import { canAccessCatalogVideo, hasPlanAccess } from "@/lib/session"
 import {
   courseCover,
+  courseKindCounts,
+  formatCourseUpdatedAt,
+  parseFaq,
   parseLearnings,
   pickContinueLesson,
   summarizeCourseProgress,
+  sumLessonDurations,
   type LessonWatchState,
 } from "@/lib/course"
 import type { CourseLessonVideo } from "@/lib/course-query"
@@ -24,10 +28,17 @@ export type CourseRow = {
   slug: string
   description: string | null
   learnings?: string | null
+  instructorName?: string | null
+  level?: string | null
+  requirements?: string | null
+  audience?: string | null
+  faq?: string | null
+  trailerVideoId?: number | null
   thumbnail: string | null
   requiredPlan: string
   published: boolean
   sortOrder: number
+  updatedAt?: Date
   modules: CourseModuleRow[]
 }
 
@@ -50,6 +61,11 @@ function lessonAccess(
 export function isCourseCardLocked(requiredPlan: string, requester: RequesterAccess): boolean {
   if (requester?.role === "admin") return false
   return !hasPlanAccess(requester?.plan ?? "free", requiredPlan)
+}
+
+function firstChannelName(lessons: CourseLessonVideo[]): string | null {
+  const name = lessons.find((lesson) => lesson.channelName?.trim())?.channelName?.trim()
+  return name || null
 }
 
 export function publicCourseSummary(
@@ -93,8 +109,21 @@ export function publicCourseDetail(
   grantIds: Set<number>,
 ) {
   const summary = publicCourseSummary(course, requester, userId, secondsByVideo, watchStateByVideo)
+  const lessons = course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.video))
+  const kinds = courseKindCounts(lessons)
   return {
     ...summary,
+    instructorName: course.instructorName?.trim() || firstChannelName(lessons),
+    level: course.level ?? null,
+    requirements: parseLearnings(course.requirements),
+    audience: parseLearnings(course.audience),
+    faq: parseFaq(course.faq),
+    trailerVideoId: course.trailerVideoId ?? null,
+    updatedAt: course.updatedAt ? course.updatedAt.toISOString() : null,
+    updatedAtLabel: formatCourseUpdatedAt(course.updatedAt ?? null),
+    videoCount: kinds.videoCount,
+    articleCount: kinds.articleCount,
+    totalSeconds: sumLessonDurations(lessons),
     learnings: parseLearnings(course.learnings),
     modules: course.modules.map((module) => ({
       id: module.id,
@@ -120,6 +149,36 @@ export function publicCourseDetail(
           locked,
         }
       }),
+    })),
+  }
+}
+
+export type CourseReviewRow = {
+  id: number
+  rating: number
+  comment: string | null
+  createdAt: Date
+  userId: number
+  user: { name: string | null }
+}
+
+export function serializeCourseReviews(rows: CourseReviewRow[], userId: number | null) {
+  const count = rows.length
+  const average = count === 0
+    ? null
+    : Math.round((rows.reduce((sum, row) => sum + row.rating, 0) / count) * 10) / 10
+  const mine = userId == null ? null : rows.find((row) => row.userId === userId) ?? null
+  return {
+    average,
+    count,
+    mine: mine ? { rating: mine.rating, comment: mine.comment } : null,
+    items: rows.map((row) => ({
+      id: row.id,
+      rating: row.rating,
+      comment: row.comment,
+      authorName: row.user.name?.trim() || "Aluno",
+      createdAt: row.createdAt.toISOString(),
+      mine: userId != null && row.userId === userId,
     })),
   }
 }

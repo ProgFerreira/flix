@@ -18,6 +18,12 @@ enum UserPlan {
   pro
 }
 
+enum CourseLevel {
+  beginner
+  intermediate
+  advanced
+}
+
 enum UserStatus {
   active
   blocked
@@ -105,6 +111,8 @@ model User {
   planChangeRequests PlanChangeRequest[]
   reviewedPlanChanges PlanChangeRequest[] @relation("PlanChangeReviewer")
   favorites         Favorite[]
+  courseFavorites   CourseFavorite[]
+  courseReviews     CourseReview[]
   watchProgress     WatchProgress[]
   passwordResetTokens PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
@@ -338,6 +346,7 @@ model Video {
   watchProgress   WatchProgress[]
   accessGrants    VideoAccessGrant[]
   courseLesson    CourseLesson?
+  trailerForCourses Course[] @relation("CourseTrailer")
 
   @@index([userId, createdAt])
   @@index([userId, sortOrder])
@@ -427,21 +436,60 @@ model CollectionVideo {
 // Trilha didática do catálogo. A aula continua sendo Video; o curso só
 // agrupa e ordena. Apagar o curso não apaga o arquivo — só a trilha.
 model Course {
-  id           Int      @id @default(autoincrement())
-  title        String
-  slug         String   @unique
-  description  String?  @db.Text
-  thumbnail    String?  @db.VarChar(500)
-  learnings    String?  @db.Text
-  requiredPlan UserPlan @default(free)
-  published    Boolean  @default(false)
-  sortOrder    Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             Int          @id @default(autoincrement())
+  title          String
+  slug           String       @unique
+  description    String?      @db.Text
+  thumbnail      String?      @db.VarChar(500)
+  learnings      String?      @db.Text
+  instructorName String?      @db.VarChar(120)
+  level          CourseLevel?
+  requirements   String?      @db.Text
+  audience       String?      @db.Text
+  faq            String?      @db.Text
+  trailerVideoId Int?
+  requiredPlan   UserPlan     @default(free)
+  published      Boolean      @default(false)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  modules CourseModule[]
+  trailerVideo Video?           @relation("CourseTrailer", fields: [trailerVideoId], references: [id], onDelete: SetNull)
+  modules      CourseModule[]
+  favorites    CourseFavorite[]
+  reviews      CourseReview[]
 
   @@index([published, sortOrder])
+  @@index([trailerVideoId])
+}
+
+model CourseFavorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  courseId  Int
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+}
+
+model CourseReview {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  courseId  Int
+  rating    Int
+  comment   String?  @db.VarChar(1000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId, createdAt])
 }
 
 model CourseModule {

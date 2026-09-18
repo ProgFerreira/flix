@@ -149,10 +149,78 @@ export function parseLearnings(raw: string | null | undefined): string[] {
     .map((line) => line.slice(0, 200))
 }
 
+export type CourseFaqItem = { question: string; answer: string }
+
+/** Blocos separados por linha em branco: primeira linha = pergunta, resto = resposta. */
+export function parseFaq(raw: string | null | undefined): CourseFaqItem[] {
+  if (!raw?.trim()) return []
+  return raw
+    .split(/\r?\n\s*\r?\n/)
+    .map((block) => {
+      const lines = block.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+      const question = lines[0]?.slice(0, 200) ?? ""
+      const answer = lines.slice(1).join("\n").slice(0, 1000)
+      return { question, answer }
+    })
+    .filter((item) => item.question && item.answer)
+    .slice(0, 20)
+}
+
+export function courseKindCounts(lessons: { source: string | null | undefined }[]): {
+  videoCount: number
+  articleCount: number
+} {
+  let videoCount = 0
+  let articleCount = 0
+  for (const lesson of lessons) {
+    if (isArticleSource(lesson.source)) articleCount += 1
+    else videoCount += 1
+  }
+  return { videoCount, articleCount }
+}
+
+export function isFreePreviewLesson(
+  lesson: { requiredPlan: string },
+  coursePlan: string,
+): boolean {
+  return lesson.requiredPlan === "free" && coursePlan !== "free"
+}
+
+function matchesCurriculumQuery(value: string, needle: string): boolean {
+  return value.toLowerCase().includes(needle)
+}
+
+export function filterCourseCurriculum<
+  T extends { title: string; lessons: { title: string }[] },
+>(modules: T[], query: string): T[] {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return modules
+  return modules.flatMap((module) => {
+    if (matchesCurriculumQuery(module.title, needle)) return [module]
+    const lessons = module.lessons.filter((lesson) => matchesCurriculumQuery(lesson.title, needle))
+    return lessons.length > 0 ? [{ ...module, lessons }] : []
+  })
+}
+
 export const COURSE_PLAN_LABEL: Record<string, string> = {
   free: "Free",
   premium: "Premium",
   pro: "Pro",
+}
+
+export const COURSE_LEVEL_LABEL: Record<string, string> = {
+  beginner: "Iniciante",
+  intermediate: "Intermediário",
+  advanced: "Avançado",
+}
+
+const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+
+export function formatCourseUpdatedAt(iso: string | Date | null | undefined): string | null {
+  if (!iso) return null
+  const date = iso instanceof Date ? iso : new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  return `${date.getUTCDate()} ${MONTHS_PT[date.getUTCMonth()]}. ${date.getUTCFullYear()}`
 }
 
 /** Duração amigável pra chips da landing — sem puxar ffmpeg no client. */
@@ -199,12 +267,25 @@ export function lessonKindLabel(source: string | null | undefined): string {
   return isArticleSource(source) ? "Artigo" : "Vídeo"
 }
 
-export type CourseLandingPreviewField = "thumbnail" | "description" | "learnings"
+export type CourseLandingPreviewField =
+  | "thumbnail"
+  | "description"
+  | "learnings"
+  | "instructorName"
+  | "level"
+  | "requirements"
+  | "audience"
+  | "faq"
 
 export function courseLandingPreviewHints(course: {
   thumbnail: string
   description: string | null
   learnings?: string[]
+  instructorName?: string | null
+  level?: string | null
+  requirements?: string[]
+  audience?: string[]
+  faq?: { question: string; answer: string }[]
 }): { field: CourseLandingPreviewField; message: string }[] {
   const hints: { field: CourseLandingPreviewField; message: string }[] = []
   if (!hasCustomThumb(course.thumbnail)) {
@@ -215,6 +296,21 @@ export function courseLandingPreviewHints(course: {
   }
   if (!course.learnings?.length) {
     hints.push({ field: "learnings", message: "Preencha o que o aluno vai aprender no editor para esta seção aparecer." })
+  }
+  if (course.instructorName !== undefined && !course.instructorName?.trim()) {
+    hints.push({ field: "instructorName", message: "Informe o instrutor no editor para esta seção aparecer." })
+  }
+  if (course.level !== undefined && !course.level) {
+    hints.push({ field: "level", message: "Escolha o nível no editor para esta seção aparecer." })
+  }
+  if (course.requirements !== undefined && course.requirements.length === 0) {
+    hints.push({ field: "requirements", message: "Preencha os requisitos no editor para esta seção aparecer." })
+  }
+  if (course.audience !== undefined && course.audience.length === 0) {
+    hints.push({ field: "audience", message: "Preencha para quem é o curso no editor para esta seção aparecer." })
+  }
+  if (course.faq !== undefined && course.faq.length === 0) {
+    hints.push({ field: "faq", message: "Preencha as perguntas frequentes no editor para esta seção aparecer." })
   }
   return hints
 }

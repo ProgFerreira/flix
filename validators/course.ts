@@ -24,11 +24,32 @@ export const courseSlugSchema = z
   .max(80)
   .regex(COURSE_SLUG_RE, "Use só letras minúsculas, números e hífen")
 
+const optionalName = z
+  .union([z.string().trim().max(120), z.null()])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value ? value : null))
+
+const courseLevelSchema = z.enum(["beginner", "intermediate", "advanced"])
+
+const optionalLevel = z
+  .union([courseLevelSchema, z.null()])
+  .optional()
+
+const optionalTrailerId = z
+  .union([z.number().int().positive(), z.null()])
+  .optional()
+
 export const courseWriteSchema = z.object({
   title: z.string().trim().min(1, "Título obrigatório").max(200),
   slug: courseSlugSchema.optional(),
   description: optionalText,
   learnings: optionalText,
+  instructorName: optionalName,
+  level: optionalLevel,
+  requirements: optionalText,
+  audience: optionalText,
+  faq: optionalText,
+  trailerVideoId: optionalTrailerId,
   thumbnail: thumbnailSchema,
   requiredPlan: planSchema.optional(),
   published: z.boolean().optional(),
@@ -36,6 +57,14 @@ export const courseWriteSchema = z.object({
 })
 
 export const coursePatchSchema = courseWriteSchema.partial()
+
+export const courseReviewWriteSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z
+    .union([z.string().trim().max(1000), z.null()])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value ? value : null)),
+})
 
 export const curriculumSchema = z.object({
   modules: z.array(z.object({

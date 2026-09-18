@@ -11,6 +11,8 @@ const prisma = {
   user: { findUnique: vi.fn() },
   course: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
   watchProgress: { findMany: vi.fn() },
+  courseFavorite: { findUnique: vi.fn() },
+  courseReview: { findMany: vi.fn() },
 }
 
 vi.mock("@/lib/session", async (importOriginal) => {
@@ -109,10 +111,16 @@ describe("GET /api/catalog/courses/[slug]", () => {
     optionalCatalogRequester.mockReset()
     optionalCatalogRequester.mockResolvedValue(null)
     prisma.course.findUnique.mockReset()
+    prisma.course.findMany.mockReset()
     prisma.user.findUnique.mockReset()
     canAccessCatalogVideo.mockReset()
     grantedVideoIdsForUser.mockReset()
     prisma.watchProgress.findMany.mockReset()
+    prisma.courseFavorite.findUnique.mockReset()
+    prisma.courseReview.findMany.mockReset()
+    prisma.course.findMany.mockResolvedValue([])
+    prisma.courseFavorite.findUnique.mockResolvedValue(null)
+    prisma.courseReview.findMany.mockResolvedValue([])
   })
 
   it("returns 404 for an invalid slug", async () => {

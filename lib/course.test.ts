@@ -10,6 +10,12 @@ import {
   isEligibleCourseLesson,
   mergeLessonSeconds,
   parseLearnings,
+  parseFaq,
+  courseKindCounts,
+  isFreePreviewLesson,
+  filterCourseCurriculum,
+  COURSE_LEVEL_LABEL,
+  formatCourseUpdatedAt,
   isArticleSource,
   hasCustomThumb,
   formatCourseDuration,
@@ -268,6 +274,25 @@ describe("courseLandingPreviewHints", () => {
     }).find((item) => item.field === "description")
     expect(hint?.message).toBe("Preencha a descrição no editor para esta seção aparecer.")
   })
+
+  it("lists missing instructor, level, requirements, audience and faq", () => {
+    expect(courseLandingPreviewHints({
+      thumbnail: "capa.jpg",
+      description: "Curso",
+      learnings: ["A"],
+      instructorName: null,
+      level: null,
+      requirements: [],
+      audience: [],
+      faq: [],
+    }).map((hint) => hint.field)).toEqual([
+      "instructorName",
+      "level",
+      "requirements",
+      "audience",
+      "faq",
+    ])
+  })
 })
 
 describe("courseLandingCta", () => {
@@ -329,5 +354,84 @@ describe("courseLandingLessonState", () => {
   it("marks a finished lesson as done and the rest as playable", () => {
     expect(courseLandingLessonState({ locked: false, status: "ready", progressSeconds: 540, duration: "10:00" })).toBe("done")
     expect(courseLandingLessonState({ locked: false, status: "ready", progressSeconds: 10, duration: "10:00" })).toBe("playable")
+  })
+})
+
+describe("parseFaq", () => {
+  it("returns nothing for empty notes", () => {
+    expect(parseFaq(null)).toEqual([])
+    expect(parseFaq("  ")).toEqual([])
+  })
+
+  it("splits blank-line blocks into question and answer", () => {
+    expect(parseFaq("Posso assistir no celular?\nSim, no navegador.\n\nTem certificado?\nAinda não.")).toEqual([
+      { question: "Posso assistir no celular?", answer: "Sim, no navegador." },
+      { question: "Tem certificado?", answer: "Ainda não." },
+    ])
+  })
+
+  it("joins extra answer lines and skips a question without an answer", () => {
+    expect(parseFaq("Como acesso?\nAbra o catálogo\ne clique em Iniciar.\n\nSó a pergunta")).toEqual([
+      { question: "Como acesso?", answer: "Abra o catálogo\ne clique em Iniciar." },
+    ])
+  })
+})
+
+describe("courseKindCounts", () => {
+  it("counts videos and articles separately", () => {
+    expect(courseKindCounts([
+      { source: "youtube" },
+      { source: "upload" },
+      { source: "article" },
+      { source: "article" },
+    ])).toEqual({ videoCount: 2, articleCount: 2 })
+  })
+})
+
+describe("isFreePreviewLesson", () => {
+  it("marks a free lesson inside a paid course", () => {
+    expect(isFreePreviewLesson({ requiredPlan: "free" }, "premium")).toBe(true)
+    expect(isFreePreviewLesson({ requiredPlan: "free" }, "free")).toBe(false)
+    expect(isFreePreviewLesson({ requiredPlan: "premium" }, "pro")).toBe(false)
+  })
+})
+
+describe("filterCourseCurriculum", () => {
+  const modules = [
+    { id: 1, title: "Fundamentos", lessons: [{ id: 10, title: "Corte reto" }, { id: 11, title: "Acabamento" }] },
+    { id: 2, title: "Avançado", lessons: [{ id: 12, title: "Pregas" }] },
+  ]
+
+  it("returns every module when the query is blank", () => {
+    expect(filterCourseCurriculum(modules, "  ")).toEqual(modules)
+  })
+
+  it("keeps modules that match the query in a lesson title", () => {
+    expect(filterCourseCurriculum(modules, "prega")).toEqual([
+      { id: 2, title: "Avançado", lessons: [{ id: 12, title: "Pregas" }] },
+    ])
+  })
+
+  it("keeps a module when the module title matches even if lessons do not", () => {
+    expect(filterCourseCurriculum(modules, "fundamento")).toEqual([
+      { id: 1, title: "Fundamentos", lessons: [{ id: 10, title: "Corte reto" }, { id: 11, title: "Acabamento" }] },
+    ])
+  })
+})
+
+describe("COURSE_LEVEL_LABEL", () => {
+  it("labels the three editor levels in Portuguese", () => {
+    expect(COURSE_LEVEL_LABEL).toEqual({
+      beginner: "Iniciante",
+      intermediate: "Intermediário",
+      advanced: "Avançado",
+    })
+  })
+})
+
+describe("formatCourseUpdatedAt", () => {
+  it("formats a UTC date without depending on the host locale", () => {
+    expect(formatCourseUpdatedAt("2026-09-18T12:00:00.000Z")).toBe("18 set. 2026")
+    expect(formatCourseUpdatedAt(null)).toBeNull()
   })
 })

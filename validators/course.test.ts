@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest"
-import { courseWriteSchema, coursePatchSchema, curriculumSchema, courseSlugSchema } from "@/validators/course"
+import {
+  courseWriteSchema,
+  coursePatchSchema,
+  curriculumSchema,
+  courseSlugSchema,
+  courseReviewWriteSchema,
+} from "@/validators/course"
 
 describe("courseWriteSchema", () => {
   it("accepts a title without forcing plan defaults on the payload", () => {
@@ -13,6 +19,60 @@ describe("courseWriteSchema", () => {
   it("rejects an invalid slug", () => {
     const parsed = courseWriteSchema.safeParse({ title: "Aula", slug: "Módulo 1" })
     expect(parsed.success).toBe(false)
+  })
+})
+
+describe("courseWriteSchema landing metadata", () => {
+  it("accepts optional instructor, level, lists, faq and trailer", () => {
+    const parsed = courseWriteSchema.parse({
+      title: "Trilha",
+      instructorName: "Rener",
+      level: "beginner",
+      requirements: "Ter um cadastro",
+      audience: "Quem está começando",
+      faq: "Tem certificado?\nAinda não.",
+      trailerVideoId: 11,
+    })
+    expect(parsed.instructorName).toBe("Rener")
+    expect(parsed.level).toBe("beginner")
+    expect(parsed.requirements).toBe("Ter um cadastro")
+    expect(parsed.audience).toBe("Quem está começando")
+    expect(parsed.faq).toBe("Tem certificado?\nAinda não.")
+    expect(parsed.trailerVideoId).toBe(11)
+  })
+
+  it("clears instructor, level and trailer when blank", () => {
+    const parsed = courseWriteSchema.parse({
+      title: "Trilha",
+      instructorName: "  ",
+      trailerVideoId: null,
+      level: null,
+    })
+    expect(parsed.instructorName).toBeNull()
+    expect(parsed.trailerVideoId).toBeNull()
+    expect(parsed.level).toBeNull()
+  })
+
+  it("rejects an invalid level", () => {
+    expect(courseWriteSchema.safeParse({ title: "A", level: "expert" }).success).toBe(false)
+  })
+})
+
+describe("courseReviewWriteSchema", () => {
+  it("accepts a rating and optional comment", () => {
+    expect(courseReviewWriteSchema.parse({ rating: 5, comment: "  Ótimo  " })).toEqual({
+      rating: 5,
+      comment: "Ótimo",
+    })
+  })
+
+  it("clears a blank comment and rejects ratings outside 1-5", () => {
+    expect(courseReviewWriteSchema.parse({ rating: 1, comment: "   " })).toEqual({
+      rating: 1,
+      comment: null,
+    })
+    expect(courseReviewWriteSchema.safeParse({ rating: 0 }).success).toBe(false)
+    expect(courseReviewWriteSchema.safeParse({ rating: 6 }).success).toBe(false)
   })
 })
 

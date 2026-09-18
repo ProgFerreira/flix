@@ -21,6 +21,12 @@ type CourseDetail = {
   slug: string
   description: string | null
   learnings: string | null
+  instructorName: string | null
+  level: "beginner" | "intermediate" | "advanced" | null
+  requirements: string | null
+  audience: string | null
+  faq: string | null
+  trailerVideoId: number | null
   thumbnail: string | null
   requiredPlan: "free" | "premium" | "pro"
   published: boolean
@@ -45,6 +51,12 @@ export default function AdminCourseEditorPage() {
   const [slugTouched, setSlugTouched] = useState(false)
   const [description, setDescription] = useState("")
   const [learnings, setLearnings] = useState("")
+  const [instructorName, setInstructorName] = useState("")
+  const [level, setLevel] = useState<"" | "beginner" | "intermediate" | "advanced">("")
+  const [requirements, setRequirements] = useState("")
+  const [audience, setAudience] = useState("")
+  const [faq, setFaq] = useState("")
+  const [trailerVideoId, setTrailerVideoId] = useState("")
   const [thumbnail, setThumbnail] = useState("")
   const [requiredPlan, setRequiredPlan] = useState<"free" | "premium" | "pro">("free")
   const [published, setPublished] = useState(false)
@@ -87,6 +99,12 @@ export default function AdminCourseEditorPage() {
     setSlug(course.slug)
     setDescription(course.description ?? "")
     setLearnings(course.learnings ?? "")
+    setInstructorName(course.instructorName ?? "")
+    setLevel(course.level ?? "")
+    setRequirements(course.requirements ?? "")
+    setAudience(course.audience ?? "")
+    setFaq(course.faq ?? "")
+    setTrailerVideoId(course.trailerVideoId ? String(course.trailerVideoId) : "")
     setThumbnail(course.thumbnail ?? "")
     setRequiredPlan(course.requiredPlan)
     setPublished(Boolean(course.published))
@@ -133,6 +151,12 @@ export default function AdminCourseEditorPage() {
           slug: slug.trim() || undefined,
           description: description.trim() || null,
           learnings: learnings.trim() || null,
+          instructorName: instructorName.trim() || null,
+          level: level || null,
+          requirements: requirements.trim() || null,
+          audience: audience.trim() || null,
+          faq: faq.trim() || null,
+          trailerVideoId: trailerVideoId ? Number(trailerVideoId) : null,
           thumbnail: thumbnail.trim() || null,
           requiredPlan,
           published,
@@ -350,6 +374,55 @@ export default function AdminCourseEditorPage() {
               maxLength={4000}
               placeholder="Uma habilidade por linha"
             />
+          </label>
+
+          <div className="between" style={{ marginTop: 16, alignItems: "flex-start", gap: 16 }}>
+            <label className="field" style={{ flex: 1 }} htmlFor="course-instructor">
+              <span className="field-label">Instrutor</span>
+              <input id="course-instructor" className="input" value={instructorName} onChange={(e) => setInstructorName(e.target.value)} maxLength={120} />
+            </label>
+            <label className="field" style={{ flex: 1 }} htmlFor="course-level">
+              <span className="field-label">Nível</span>
+              <select id="course-level" className="select" value={level} onChange={(e) => setLevel(e.target.value as typeof level)}>
+                <option value="">Não informado</option>
+                <option value="beginner">Iniciante</option>
+                <option value="intermediate">Intermediário</option>
+                <option value="advanced">Avançado</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="field" style={{ marginTop: 16 }} htmlFor="course-requirements">
+            <span className="field-label">Requisitos</span>
+            <textarea id="course-requirements" className="input" rows={3} value={requirements} onChange={(e) => setRequirements(e.target.value)} maxLength={4000} placeholder="Um item por linha" />
+          </label>
+
+          <label className="field" style={{ marginTop: 16 }} htmlFor="course-audience">
+            <span className="field-label">Para quem é</span>
+            <textarea id="course-audience" className="input" rows={3} value={audience} onChange={(e) => setAudience(e.target.value)} maxLength={4000} placeholder="Um item por linha" />
+          </label>
+
+          <label className="field" style={{ marginTop: 16 }} htmlFor="course-faq">
+            <span className="field-label">Perguntas frequentes</span>
+            <textarea
+              id="course-faq"
+              className="input"
+              rows={6}
+              value={faq}
+              onChange={(e) => setFaq(e.target.value)}
+              maxLength={4000}
+              placeholder={"Pergunta\nResposta\n\nOutra pergunta\nOutra resposta"}
+            />
+          </label>
+
+          <label className="field" style={{ marginTop: 16 }} htmlFor="course-trailer">
+            <span className="field-label">Aula de demonstração</span>
+            <select id="course-trailer" className="select" value={trailerVideoId} onChange={(e) => setTrailerVideoId(e.target.value)}>
+              <option value="">Nenhuma</option>
+              {modules.flatMap((module) => module.lessons).filter((lesson) => lesson.source !== "article").map((lesson) => (
+                <option key={lesson.videoId} value={lesson.videoId}>{lesson.title}</option>
+              ))}
+            </select>
           </label>
 
           <div className="between" style={{ marginTop: 16, alignItems: "flex-start", gap: 16 }}>

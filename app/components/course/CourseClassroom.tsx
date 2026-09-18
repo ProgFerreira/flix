@@ -10,6 +10,7 @@ import { LessonArticle } from "@/app/components/course/LessonArticle"
 import { LessonVideo } from "@/app/components/course/LessonVideo"
 import { loginHref } from "@/lib/auth-redirect"
 import { isArticleSource, isLessonComplete, mergeLessonSeconds, ARTICLE_COMPLETE_SECONDS, hasCustomThumb } from "@/lib/course"
+import type { CatalogCourse } from "@/app/catalogo/CourseRail"
 
 export type ClassroomLesson = {
   id: number
@@ -28,6 +29,20 @@ export type ClassroomLesson = {
   locked: boolean
 }
 
+export type CourseReviewSummary = {
+  average: number | null
+  count: number
+  mine: { rating: number; comment: string | null } | null
+  items: {
+    id: number
+    rating: number
+    comment: string | null
+    authorName: string
+    createdAt: string
+    mine: boolean
+  }[]
+}
+
 export type ClassroomCourse = {
   id: number
   slug: string
@@ -41,6 +56,20 @@ export type ClassroomCourse = {
   locked: boolean
   continueLesson: { id: number; title: string } | null
   learnings?: string[]
+  instructorName?: string | null
+  level?: string | null
+  requirements?: string[]
+  audience?: string[]
+  faq?: { question: string; answer: string }[]
+  trailerVideoId?: number | null
+  updatedAt?: string | null
+  updatedAtLabel?: string | null
+  videoCount?: number
+  articleCount?: number
+  totalSeconds?: number
+  favorited?: boolean
+  reviews?: CourseReviewSummary
+  related?: CatalogCourse[]
   modules: { id: number; title: string; lessons: ClassroomLesson[] }[]
 }
 

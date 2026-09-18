@@ -20,12 +20,12 @@ export type CatalogCourse = {
 const PLAN_LABEL: Record<string, string> = { free: "Free", premium: "Premium", pro: "Pro" }
 const PLAN_COLOR: Record<string, string> = { free: "#64748B", premium: "#7C3AED", pro: "#B45309" }
 
-export function CourseRail({ courses }: { courses: CatalogCourse[] }) {
+export function CourseRail({ courses, label = "Cursos" }: { courses: CatalogCourse[]; label?: string }) {
   if (courses.length === 0) return null
 
   return (
-    <section className="catalog-continue" aria-label="Cursos">
-      <p className="kicker">Cursos</p>
+    <section className="catalog-continue" aria-label={label}>
+      <p className="kicker">{label}</p>
       <div className="catalog-rail">
         {courses.map((course) => (
           <Link key={course.id} href={`/catalogo/cursos/${course.slug}`} className="video-card catalog-rail-card">

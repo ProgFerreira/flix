@@ -48,11 +48,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const current = await prisma.course.findUnique({ where: { id }, select: { id: true, title: true } })
   if (!current) return NextResponse.json({ error: "Curso não encontrado" }, { status: 404 })
 
-  const { slug, title, description, learnings, thumbnail, requiredPlan, published, sortOrder } = parsed.data
-  const data: Prisma.CourseUpdateInput = {}
+  const {
+    slug,
+    title,
+    description,
+    learnings,
+    instructorName,
+    level,
+    requirements,
+    audience,
+    faq,
+    trailerVideoId,
+    thumbnail,
+    requiredPlan,
+    published,
+    sortOrder,
+  } = parsed.data
+  if (trailerVideoId) {
+    const lesson = await prisma.courseLesson.findFirst({
+      where: { videoId: trailerVideoId, module: { courseId: id } },
+      select: { videoId: true },
+    })
+    if (!lesson) {
+      return NextResponse.json({ error: "A aula de demonstração precisa pertencer a este curso" }, { status: 400 })
+    }
+  }
+  const data: Prisma.CourseUncheckedUpdateInput = {}
   if (title !== undefined) data.title = title
   if (description !== undefined) data.description = description
   if (learnings !== undefined) data.learnings = learnings
+  if (instructorName !== undefined) data.instructorName = instructorName
+  if (level !== undefined) data.level = level
+  if (requirements !== undefined) data.requirements = requirements
+  if (audience !== undefined) data.audience = audience
+  if (faq !== undefined) data.faq = faq
+  if (trailerVideoId !== undefined) data.trailerVideoId = trailerVideoId
   if (thumbnail !== undefined) data.thumbnail = thumbnail
   if (requiredPlan !== undefined) data.requiredPlan = requiredPlan
   if (published !== undefined) data.published = published
