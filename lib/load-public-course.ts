@@ -1,29 +1,28 @@
 import { prisma } from "@/lib/prisma"
-import { optionalUserId, syncSubscriptionStatus } from "@/lib/session"
 import { courseSlugSchema } from "@/validators/course"
 import { courseCurriculumInclude, flattenCourseLessons } from "@/lib/course-query"
 import { publicCourseDetail } from "@/lib/course-public"
 import { grantedVideoIdsForUser } from "@/lib/video-grants"
+import { optionalCatalogRequester } from "@/lib/catalog-requester"
 import type { LessonWatchState } from "@/lib/course"
 
 export async function loadPublicCourseBySlug(slug: string) {
   const slugParsed = courseSlugSchema.safeParse(slug)
   if (!slugParsed.success) return null
 
-  const userId = await optionalUserId()
-  let requester: { plan: string; role: string } | null = null
-  if (userId) {
-    await syncSubscriptionStatus(userId)
-    requester = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, role: true } })
-  }
-
-  const course = await prisma.course.findUnique({
+  const coursePromise = prisma.course.findUnique({
     where: { slug: slugParsed.data },
     include: courseCurriculumInclude,
   })
+  const requesterRow = await optionalCatalogRequester()
+  const course = await coursePromise
   if (!course) return null
-  if (!course.published && requester?.role !== "admin") return null
+  if (!course.published && requesterRow?.role !== "admin") return null
 
+  const userId = requesterRow?.userId ?? null
+  const requester = requesterRow
+    ? { plan: requesterRow.plan, role: requesterRow.role }
+    : null
   const lessons = flattenCourseLessons(course.modules)
   const ids = lessons.map((lesson) => lesson.id)
   const secondsByVideo = new Map<number, number>()

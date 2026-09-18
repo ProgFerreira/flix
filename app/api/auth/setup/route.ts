@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const code = err && typeof err === "object" && "code" in err ? String(err.code) : undefined
     console.error("[signup]", code, err)
     return NextResponse.json(
-      { error: "Não foi possível criar a conta. Verifique o banco de dados.", code },
+      { error: "Não foi possível criar a conta. Verifique o banco de dados." },
       { status: 500 },
     )
   }

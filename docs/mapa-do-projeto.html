@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GEFlix — Mapa do projeto</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --paper: #fffdf8;
+      --ink: #1c1916;
+      --muted: #5c564e;
+      --line: #d9d2c5;
+      --accent: #1f4d3a;
+      --accent-2: #c45c26;
+      --nav: #16382c;
+      --nav-ink: #f4f1ea;
+      --ok: #1f4d3a;
+      --ok-bg: #e4efe8;
+      --warn: #8a5a12;
+      --warn-bg: #f6ead4;
+      --no: #8b1e1e;
+      --no-bg: #f6e4e4;
+      --info: #1e3a5f;
+      --info-bg: #e7eef6;
+      --code: #3d2e24;
+      --shadow: 0 1px 0 rgba(28,25,22,.06);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+    }
+    a { color: var(--accent); }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid var(--accent-2);
+      outline-offset: 2px;
+    }
+    .skip {
+      position: absolute;
+      left: -999px;
+      top: 0;
+      background: #fff;
+      padding: .5rem 1rem;
+      z-index: 20;
+    }
+    .skip:focus { left: 1rem; top: 1rem; }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: var(--nav);
+      color: var(--nav-ink);
+      padding: 1.4rem 1rem 2rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+    }
+    .brand {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-weight: 700;
+      letter-spacing: .04em;
+      margin: 0 0 .25rem;
+      font-size: 1.05rem;
+    }
+    .brand-sub { margin: 0 0 1rem; color: #c9d6cf; font-size: .82rem; font-family: "Segoe UI", system-ui, sans-serif; }
+    .search-wrap { margin-bottom: 1rem; }
+    .search-wrap label { display: block; font-size: .78rem; margin-bottom: .3rem; font-family: "Segoe UI", system-ui, sans-serif; }
+    .search-wrap input {
+      width: 100%;
+      padding: .55rem .65rem;
+      border: 0;
+      border-radius: 6px;
+      font: inherit;
+    }
+    .search-meta { font-size: .78rem; color: #c9d6cf; margin: .35rem 0 0; font-family: "Segoe UI", system-ui, sans-serif; }
+    .nav { list-style: none; padding: 0; margin: 0; font-family: "Segoe UI", system-ui, sans-serif; font-size: .9rem; }
+    .nav a { color: #e8efe9; text-decoration: none; display: block; padding: .38rem .5rem; border-radius: 6px; }
+    .nav a:hover, .nav a[aria-current="true"] { background: rgba(255,255,255,.1); }
+    .nav .sub { padding-left: .7rem; font-size: .82rem; }
+    .content { padding: 1.5rem 1.6rem 4rem; max-width: 1080px; }
+    h1, h2, h3, h4 { font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.25; }
+    h1 { font-size: 2rem; margin: 0 0 .4rem; }
+    h2 { font-size: 1.45rem; margin: 2.2rem 0 .7rem; padding-top: .4rem; border-top: 1px solid var(--line); }
+    h3 { font-size: 1.12rem; margin: 1.4rem 0 .5rem; }
+    h4 { font-size: 1rem; margin: 1rem 0 .4rem; }
+    p, li { font-size: 1.02rem; }
+    .lede { font-size: 1.12rem; color: var(--muted); margin-top: 0; }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: .7rem;
+      margin: 1.1rem 0 1.4rem;
+    }
+    .meta-card, .card, .step, .table-wrap, .diagram, .callout {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    .meta-card { padding: .7rem .85rem; }
+    .meta-card b { display: block; font-family: "Segoe UI", system-ui, sans-serif; font-size: .78rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .badge { display: inline-block; font-family: "Segoe UI", system-ui, sans-serif; font-size: .75rem; padding: .12rem .45rem; border-radius: 999px; font-weight: 600; }
+    .ok { background: var(--ok-bg); color: var(--ok); }
+    .warn { background: var(--warn-bg); color: var(--warn); }
+    .no { background: var(--no-bg); color: var(--no); }
+    .info { background: var(--info-bg); color: var(--info); }
+    .callout { padding: .8rem 1rem; margin: 1rem 0; }
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: .8rem;
+    }
+    .card { padding: .9rem 1rem; }
+    .card h3 { margin-top: 0; }
+    .card p { margin: .3rem 0 0; color: var(--muted); }
+    code, .path {
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: .86em;
+      background: #efe8dc;
+      padding: .05em .35em;
+      border-radius: 4px;
+      color: var(--code);
+    }
+    .table-wrap { overflow-x: auto; margin: .7rem 0 1.1rem; }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: .95rem; }
+    th, td { border-bottom: 1px solid var(--line); padding: .48rem .55rem; text-align: left; vertical-align: top; }
+    th { font-family: "Segoe UI", system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); background: #f8f4ec; position: sticky; top: 0; }
+    details { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; margin: .7rem 0; }
+    details > summary {
+      cursor: pointer;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-weight: 650;
+      padding: .75rem 1rem;
+      list-style: none;
+    }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::before { content: "▸ "; color: var(--accent); }
+    details[open] > summary::before { content: "▾ "; }
+    .detail-body { padding: 0 1rem 1rem; }
+    ol.steps { padding-left: 1.2rem; }
+    ol.steps li { margin: .35rem 0; }
+    .step-meta { color: var(--muted); font-size: .92rem; }
+    .diagram { padding: 1rem; margin: 1rem 0; overflow-x: auto; }
+    .diagram svg { max-width: 100%; height: auto; display: block; }
+    .arch {
+      display: grid;
+      gap: .7rem;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: .88rem;
+    }
+    .arch-row { display: flex; flex-wrap: wrap; gap: .55rem; align-items: stretch; }
+    .box {
+      background: #f8f4ec;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: .55rem .7rem;
+      min-width: 140px;
+      flex: 1;
+    }
+    .box b { display: block; color: var(--accent); }
+    .arrow { color: var(--muted); align-self: center; font-size: 1.2rem; }
+    .legend { font-size: .88rem; color: var(--muted); }
+    .empty-search { display: none; padding: .55rem .6rem; background: var(--warn-bg); color: var(--warn); border-radius: 6px; font-family: "Segoe UI", system-ui, sans-serif; font-size: .82rem; }
+    body.has-empty .empty-search { display: block; }
+    .hit { background: #ffe08a; }
+    footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      table { min-width: 520px; }
+    }
+    @media print {
+      body { background: #fff; }
+      .layout { display: block; }
+      .sidebar, .skip, .empty-search { display: none !important; }
+      .content { max-width: none; padding: 0; }
+      details, details > * { display: block !important; }
+      details > summary { display: block !important; }
+      .is-hidden-by-search { display: block !important; }
+      a { color: inherit; text-decoration: none; }
+      .table-wrap { overflow: visible; }
+      table { min-width: 0; }
+      h2 { break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+  <div class="layout">
+    <aside class="sidebar" aria-label="Navegação do mapa">
+      <p class="brand">GEFlix</p>
+      <p class="brand-sub">Mapa do projeto · 17 set 2026</p>
+      <div class="search-wrap">
+        <label for="busca">Buscar funcionalidades e tabelas</label>
+        <input id="busca" type="search" placeholder="Ex.: assinatura, Course, PIX" autocomplete="off" />
+        <p class="search-meta" id="busca-meta" role="status">Busca local. Sem filtro ativo.</p>
+        <p class="empty-search" id="sem-resultado" hidden>Nenhum resultado para esta busca. Limpe o campo para ver o mapa completo.</p>
+      </div>
+      <ul class="nav">
+        <li><a href="#visao">1. Visão geral</a></li>
+        <li><a href="#panorama">2. Panorama dos módulos</a></li>
+        <li><a href="#perfis">3. Perfis e permissões</a></li>
+        <li><a href="#manual">4. Manual passo a passo</a>
+          <ul class="nav sub">
+            <li><a href="#manual-auth">Conta e acesso</a></li>
+            <li><a href="#manual-biblio">Biblioteca</a></li>
+            <li><a href="#manual-catalogo">Catálogo e cursos</a></li>
+            <li><a href="#manual-plano">Plano e PIX</a></li>
+            <li><a href="#manual-admin">Administração</a></li>
+          </ul>
+        </li>
+        <li><a href="#fluxos">5. Fluxos e jornadas</a></li>
+        <li><a href="#arquitetura">6. Arquitetura e APIs</a></li>
+        <li><a href="#banco">7. Banco e tabelas</a></li>
+        <li><a href="#relacionamentos">8. Relacionamentos</a></li>
+        <li><a href="#regras">9. Regras e estados</a></li>
+        <li><a href="#cobertura">10. Cobertura e evidências</a></li>
+      </ul>
+    </aside>
+    <main class="content" id="conteudo">
+      <header id="visao">
+        <h1>Mapa do GEFlix</h1>
+        <p class="lede">Documentação do repositório aberto em <code>flix</code>: biblioteca pessoal de vídeos do YouTube e catálogo por assinatura do criador. Destinada a quem usa o sistema e à equipe técnica.</p>
+        <div class="meta-grid">
+          <div class="meta-card"><b>Produto</b>GEFlix (pacote npm <code>flix</code> 0.1.0)</div>
+          <div class="meta-card"><b>Público</b>Visitante, assinante e administrador do clube</div>
+          <div class="meta-card"><b>Data desta análise</b>17 de setembro de 2026</div>
+          <div class="meta-card"><b>Commit</b><code>ce3a658</code> na branch <code>main</code></div>
+          <div class="meta-card"><b>Método</b>Análise estática do código. Banco em execução não consultado.</div>
+          <div class="meta-card"><b>Escopo</b>App Next.js único. Sem monorepo.</div>
+        </div>
+        <div class="callout">
+          <p><strong>Como ler o status.</strong> <span class="badge ok">Confirmado no código</span> foi lido em arquivo e símbolo. <span class="badge info">Inferido</span> segue de nomes, README ou comentários cruzados com o código. <span class="badge warn">Não identificado / pendente</span> não pôde ser fechado sem execução, banco vivo ou trecho ausente. Nenhum fluxo foi marcado como testado em execução nesta análise.</p>
+        </div>
+        <p>O README descreve dois produtos no mesmo app: (1) biblioteca pessoal de links do YouTube; (2) catálogo de aulas do criador, com paywall por plano e cobrança PIX manual. Assinante não publica no catálogo — só o administrador. Evidência: <code>README.md</code> linhas 3–6 e 86; <code>app/api/catalog/route.ts</code> função <code>POST</code> chama <code>requireAdmin()</code>.</p>
+      </header>
+
+      <section id="panorama" data-search="módulos panorama navegação">
+        <h2>2. Panorama dos módulos</h2>
+        <div class="modules">
+          <article class="card"><h3>Acesso</h3><p>Login, cadastro, confirmação de e-mail, recuperação de senha, termos e privacidade.</p></article>
+          <article class="card"><h3>Biblioteca</h3><p>Organizar vídeos do YouTube, categorias, coleções, compartilhamento, histórico e estatísticas.</p></article>
+          <article class="card"><h3>Catálogo</h3><p>Vitrine pública, continuar assistindo, cursos, player paywalled e grants extras.</p></article>
+          <article class="card"><h3>Plano</h3><p>Pedido de troca, PIX, comprovante e cancelamento da solicitação pendente.</p></article>
+          <article class="card"><h3>Conta</h3><p>Nome, senha, exportação LGPD, exclusão (anonimização) e reenvio de confirmação.</p></article>
+          <article class="card"><h3>Admin</h3><p>Clientes, pagamentos, assinaturas, solicitações, auditoria, vídeos e cursos.</p></article>
+          <article class="card"><h3>Jobs</h3><p>Cron de cobrança/lembretes e reenfileiramento de FFmpeg. Sem UI própria além do painel de saúde.</p></article>
+        </div>
+        <h3>Navegação encontrada na interface</h3>
+        <p>Visitante vê logo, <strong>Catálogo</strong>, <strong>Entrar</strong> e <strong>Criar conta</strong> (<code>VisitorHeader</code> em <code>app/components/AppHeader.tsx</code>). Quem está autenticado vê: <strong>Minha biblioteca</strong> (<code>/</code>), <strong>Explorar catálogo</strong>, <strong>Histórico</strong>, <strong>Estatísticas</strong>, <strong>Meu Plano</strong>, <strong>Conta</strong> e <strong>Sair</strong>. Admin ainda vê <strong>Admin</strong> e, dentro de <code>/admin</code>, a subnavegação: Painel, Clientes, Pagamentos, Assinaturas, Solicitações, Auditoria, Vídeos, Cursos.</p>
+      </section>
+
+      <section id="perfis" data-search="perfis permissões role plan admin visitante">
+        <h2>3. Perfis e permissões</h2>
+        <p>O modelo é <strong>uma conta = um espectador</strong>. Não há perfis infantis ou familiares. Papel (<code>UserRole</code>) e plano (<code>UserPlan</code>) são campos distintos. Evidência: comentário em <code>prisma/schema.prisma</code> no model <code>User</code>; enums nas linhas 10–18.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Perfil</th><th>Como entra</th><th>O que pode</th><th>O que não pode</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Visitante</td>
+                <td>Sem sessão. Tratado como plano <code>free</code> no catálogo.</td>
+                <td>Ver e assistir itens publicados gratuitos; abrir coleção pública em <code>/c/[token]</code>; ver landing de curso publicado.</td>
+                <td>Biblioteca, histórico, estatísticas, plano, conta, favoritar, progresso persistido, admin.</td>
+              </tr>
+              <tr>
+                <td>Usuário Free</td>
+                <td>Cadastro em <code>/login?mode=register</code>. Papel <code>user</code>, plano <code>free</code>.</td>
+                <td>Biblioteca até 20 vídeos; categorias; favoritos; compartilhar vídeo; coleções (a API não bloqueia por plano); catálogo Free; pedir upgrade.</td>
+                <td>Publicar no catálogo; acessar conteúdo Premium/Pro sem grant; abrir <code>/admin</code>.</td>
+              </tr>
+              <tr>
+                <td>Usuário Premium / Pro</td>
+                <td>Pedido em <code>/plano</code> aprovado pelo admin, ou ajuste manual do admin.</td>
+                <td>Quota 100 (Premium) ou ilimitada (Pro); catálogo até o nível do plano; progresso e favoritos do catálogo.</td>
+                <td>Publicar no catálogo; rotas admin.</td>
+              </tr>
+              <tr>
+                <td>Administrador</td>
+                <td>Campo <code>role=admin</code>. Primeiro admin via <code>scripts/set-admin.mjs</code>. Outros podem ser criados em Clientes.</td>
+                <td>Tudo do usuário + painel, CRUD de clientes/pagamentos/assinaturas/cursos/vídeos, grants, publicação, sync de cobrança.</td>
+                <td>Não há RBAC por tela: admin vê todas as telas admin. Bloqueado (<code>status=blocked</code>) perde o acesso.</td>
+              </tr>
+              <tr>
+                <td>Conta excluída</td>
+                <td><code>DELETE /api/account</code> ou exclusão no admin.</td>
+                <td>Nada. E-mail vira <code>removido_{id}@anonimo.local</code>, status <code>blocked</code>, <code>deletadoEm</code> preenchido.</td>
+                <td>Login. Pagamentos são retidos.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>Portões reais</h3>
+        <ul>
+          <li><code>proxy.ts</code> recusa CSRF em mutações <code>/api/*</code> e redireciona <code>/admin/*</code> se a linha viva no banco não for admin ativo.</li>
+          <li><code>app/admin/layout.tsx</code> revalida sessão e papel no servidor.</li>
+          <li>APIs de negócio usam <code>requireUserId()</code>, <code>optionalUserId()</code> ou <code>requireAdmin()</code> em <code>lib/session.ts</code>. Sessão JWT sozinha não basta: status, papel e <code>deletadoEm</code> são lidos no MySQL.</li>
+          <li>Cron: <code>Authorization: Bearer</code> comparado a <code>CRON_SECRET</code> em <code>lib/cron-auth.ts</code>. Sem o segredo, a rota recusa qualquer chamada.</li>
+        </ul>
+        <div class="callout">
+          <p><strong>Divergência de marketing × API.</strong> O texto de planos em <code>lib/plan-config.ts</code> (<code>PLAN_FEATURES</code>) diz que coleções colaborativas/link público são Premium e que exportação é Pro. No código, <code>POST /api/collections</code> e <code>GET /api/export</code> só exigem usuário autenticado — não checam o plano. Status: confirmado no código; a restrição anunciada não está implementada nessas rotas.</p>
+        </div>
+      </section>
+
+      <section id="manual" data-search="manual passo a passo uso">
+        <h2>4. Manual passo a passo por funcionalidade</h2>
+        <p>Rótulos abaixo são os encontrados na interface. Exemplos de dados são fictícios (ex.: Maria Silva, <code>maria@exemplo.local</code>).</p>
+
+        <h3 id="manual-auth">Conta e acesso</h3>
+        <details open data-search="login entrar cadastrar senha termos">
+          <summary>Entrar e criar conta — /login</summary>
+          <div class="detail-body">
+            <p><strong>Pré-condições.</strong> Nenhuma. Conta bloqueada ou anonimizada não entra.</p>
+            <p><strong>Entrada.</strong> <code>/login</code>, ou <strong>Entrar</strong> / <strong>Criar conta</strong> no cabeçalho de visitante. Query <code>returnTo</code> volta só para rota interna segura (<code>lib/auth-redirect.ts</code>).</p>
+            <ol class="steps">
+              <li>Na aba <strong>Entrar</strong>: preencha Email e Senha. Opcional: <strong>Manter conectado por 30 dias</strong>.</li>
+              <li>Clique em <strong>Entrar</strong>. Sucesso redireciona para <code>returnTo</code> (padrão <code>/</code>). Falha mostra «E-mail ou senha inválidos» — mensagem genérica, sem dizer se o e-mail existe.</li>
+              <li>Aba <strong>Cadastrar</strong>: Nome, Email, Senha (mínimo 8, máximo 72), checkbox <strong>Li e aceito os termos de uso e a política de privacidade</strong>.</li>
+              <li>Clique em <strong>Criar conta</strong>. O sistema grava consentimentos LGPD (versão <code>2026-09-15</code>), envia e-mail de confirmação e já autentica.</li>
+            </ol>
+            <p><strong>Validações.</strong> Rate limit de login: 5 tentativas por IP e por e-mail a cada 15 min. Cadastro: 5 contas por IP por hora. E-mail duplicado (conta viva) retorna erro genérico. Evidência: <code>lib/auth.ts</code> <code>authorize</code>; <code>app/api/auth/setup/route.ts</code>.</p>
+            <p><strong>Resultado.</strong> Cookie de sessão httpOnly SameSite=Lax. JWT 24 h, ou 30 dias com «manter conectado». Consentimentos em <code>ConsentimentoLgpd</code>.</p>
+            <p><strong>Alternativas.</strong> <strong>Esqueci minha senha</strong> → <code>/esqueci-senha</code>. <strong>Ver o catálogo sem conta</strong> → <code>/catalogo</code>.</p>
+          </div>
+        </details>
+        <details data-search="esqueci senha redefinir verificar e-mail">
+          <summary>Recuperar senha e confirmar e-mail</summary>
+          <div class="detail-body">
+            <p><strong>Esqueci a senha.</strong> Informe o e-mail e envie. A resposta é sempre a mesma («Se esse e-mail tiver uma conta…»), inclusive em 429. Token cru vai no link; o banco guarda SHA-256. Expira em 1 hora. Tela <code>/redefinir-senha?token=</code>.</p>
+            <p><strong>Confirmar e-mail.</strong> Link <code>/verificar-email?token=</code> (24 h). Banner no app: «Confirme seu e-mail…» com <strong>Reenviar confirmação</strong> em Conta. Sem <code>RESEND_API_KEY</code>, em desenvolvimento o link é só logado no console do servidor.</p>
+            <p><strong>Observação.</strong> <code>requireVerifiedEmail()</code> existe em <code>lib/email-verification.ts</code> e os testes de catálogo a mockam, mas as rotas vivas de publicação exigem admin — e admin passa nessa checagem. Publicar no catálogo não está liberado ao assinante mesmo com e-mail confirmado.</p>
+          </div>
+        </details>
+        <details data-search="conta nome senha exportar excluir lgpd">
+          <summary>Conta — /conta</summary>
+          <div class="detail-body">
+            <p><strong>Pré-condição.</strong> Sessão válida. Tela usa <code>useRequireAuth</code>.</p>
+            <ol class="steps">
+              <li>Altere o nome e salve (rótulo de sucesso: «Nome atualizado»).</li>
+              <li>Troca de senha pede senha atual, nova e confirmação.</li>
+              <li>Se o e-mail não estiver confirmado, use o reenvio.</li>
+              <li>Há atalho para <strong>Meu Plano</strong> e listagem dos últimos pagamentos da conta.</li>
+              <li>Exportação de dados: <code>GET /api/account/export</code> (JSON com perfil, consentimentos, assinatura, pagamentos, vídeos — sem hash de senha).</li>
+              <li>Exclusão pede confirmação. Não apaga o histórico financeiro: anonimiza a linha em <code>User</code>, remove biblioteca/uploads e cancela assinatura pendente (<code>lib/delete-user.ts</code> <code>deleteUserAccount</code>).</li>
+            </ol>
+          </div>
+        </details>
+
+        <h3 id="manual-biblio">Biblioteca pessoal</h3>
+        <details open data-search="biblioteca adicionar youtube categoria coleção">
+          <summary>Minha biblioteca — /</summary>
+          <div class="detail-body">
+            <p><strong>Pré-condição.</strong> Autenticado. Visitante é mandado para <code>/catalogo</code>.</p>
+            <p><strong>Campos e filtros.</strong> Busca («Buscar vídeos...»), chips <strong>Todos</strong>, <strong>Não assistidos</strong>, <strong>Assistidos</strong>, <strong>Favoritos</strong>, <strong>Compartilhados comigo</strong>, categorias, coleções. Ordenação: mais novos, mais antigos, A–Z, favoritos, manual. Paginação na URL (<code>q</code>, <code>filter</code>, <code>order</code>, <code>page</code>, <code>collection</code>).</p>
+            <ol class="steps">
+              <li><strong>Adicionar vídeo</strong>: cole um link do YouTube, título e categorias opcionais. Só entra <code>source=youtube</code> (<code>GET/POST /api/videos</code>).</li>
+              <li><strong>Mais opções</strong>: <strong>Importar playlist</strong> (URL de playlist YouTube), <strong>Importar arquivo JSON</strong>, <strong>Exportar biblioteca</strong>, <strong>Nova categoria</strong>, <strong>Vídeo aleatório</strong>, <strong>Atualizar</strong>.</li>
+              <li>No card: assistir (player), favoritar, marcar assistido, editar notas/categorias, compartilhar com outro usuário (permissão ver/editar), colocar em coleção, excluir.</li>
+              <li>Coleção: criar, convidar por e-mail (papéis viewer/editor), gerar/rotacionar link público. Quem tem o link vê só YouTube, sem notas nem uploads (<code>lib/collection-share.ts</code> <code>toPublicCollection</code>).</li>
+            </ol>
+            <p><strong>Quota.</strong> Free 20, Premium 100, Pro ilimitado. Estouro: «Limite do plano … atingido. Faça upgrade em /plano.» Lock <code>FOR UPDATE</code> na criação (<code>lib/plan-quota.ts</code> <code>claimVideoSlot</code>).</p>
+            <p><strong>Compartilhamento de vídeo.</strong> Destino precisa existir. <code>VideoShare</code> com <code>view</code> ou <code>edit</code>. Não é o mesmo mecanismo de grant do catálogo.</p>
+          </div>
+        </details>
+        <details data-search="histórico estatísticas">
+          <summary>Histórico e estatísticas</summary>
+          <div class="detail-body">
+            <p><strong>Histórico</strong> (<code>/historico</code>): lista vídeos da biblioteca com <code>watched=true</code>, agrupados em Hoje / Ontem / Esta semana / Mais antigos. Clique reproduz no player.</p>
+            <p><strong>Estatísticas</strong> (<code>/estatisticas</code>): totais da biblioteca do usuário (não do catálogo): total, assistidos, favoritos, tempo estimado, top categorias/canais, barras dos últimos 6 meses. API <code>GET /api/stats</code>.</p>
+          </div>
+        </details>
+        <details data-search="coleção pública token /c/">
+          <summary>Coleção pública — /c/[token]</summary>
+          <div class="detail-body">
+            <p>Qualquer pessoa com o token (20–64 caracteres base64url) chama <code>GET /api/c/[token]</code>. Sem login. Rate limit no GET público. Token inválido: «Este link não está mais ativo». Player toca YouTube embutido; uploads autorais não entram no payload público.</p>
+          </div>
+        </details>
+
+        <h3 id="manual-catalogo">Catálogo e cursos</h3>
+        <details open data-search="catálogo explorar continuar assistindo favorito">
+          <summary>Explorar catálogo — /catalogo</summary>
+          <div class="detail-body">
+            <p><strong>Pré-condição.</strong> Nenhuma para o gratuito. Visitante usa <code>VisitorHeader</code>.</p>
+            <p><strong>O que aparece.</strong> Vitrine do criador (PIX/planos), trilho de cursos publicados, «continuar assistindo» (só logado), grade de vídeos avulsos publicados e prontos. Aulas que já estão em algum curso (mesmo rascunho) saem da grade avulsa, salvo deep link <code>?video=</code>.</p>
+            <p><strong>Filtros.</strong> Busca, plano (Todos/Free/Premium/Pro), favoritos, «meus» (admin/dono). Na aba Todos, conteúdo acima do plano some da lista; nos chips de plano o card pode aparecer travado com CTA de upgrade (<code>catalogVisiblePlanFilter</code> em <code>lib/session.ts</code>).</p>
+            <ol class="steps">
+              <li>Clique no card liberado para tocar. Upload em <code>processing</code> ou <code>error</code> não toca.</li>
+              <li>Estrela favorita grava em <code>Favorite</code> (não no campo <code>Video.favorite</code> da biblioteca).</li>
+              <li>Admin vê <strong>Publicar</strong> (modal de link YouTube) e gestão de grants («quem mais pode ver»).</li>
+              <li>Assinante sem conteúdo vê estado vazio diferente do admin.</li>
+            </ol>
+            <p><strong>Progresso.</strong> <code>PATCH /api/catalog/[id]/progress</code> persiste segundos em <code>WatchProgress</code>. «Continuar» exige ≥ 5 s e menos de 90% da duração (<code>lib/watch-continue.ts</code>).</p>
+          </div>
+        </details>
+        <details data-search="curso aula artigo landing classroom">
+          <summary>Curso — /catalogo/cursos/[slug]</summary>
+          <div class="detail-body">
+            <p>Curso não publicado devolve 404, exceto admin. Landing mostra título, descrição, aprendizados, módulos e botão <strong>Iniciar curso</strong> ou <strong>Continuar</strong>. Aula travada leva a <strong>Assinar …</strong> ou <strong>Entrar pra assinar</strong>.</p>
+            <p>Com <code>?aula=ID</code> abre a sala (<code>CourseClassroom</code>): vídeo, artigo de texto (notas parseadas) ou YouTube. Query <code>preview=1</code> é pré-visualização do editor admin. Progresso de artigo usa duração sentinela <code>1:00</code> (<code>ARTICLE_LESSON_DURATION</code>).</p>
+            <p>Acesso por aula ainda usa o plano mínimo do <code>Video</code> da aula (e grants). O plano do curso trava o card na vitrine.</p>
+          </div>
+        </details>
+
+        <h3 id="manual-plano">Plano e pagamento PIX</h3>
+        <details open data-search="plano pix comprovante solicitação upgrade">
+          <summary>Meu Plano — /plano</summary>
+          <div class="detail-body">
+            <p><strong>Pré-condição.</strong> Autenticado; senão redireciona para login com retorno a <code>/plano</code>.</p>
+            <p><strong>Preços no servidor</strong> (<code>lib/plan-config.ts</code> <code>PLAN_PRICES</code>): Premium R$ 10,00 / mês ou R$ 96,00 / ano; Pro R$ 17,90 / mês ou R$ 171,84 / ano. Free é grátis. A UI não manda o valor — o servidor calcula.</p>
+            <ol class="steps">
+              <li>Escolha o card Free, Premium ou Pro. Em pago, escolha Mensal ou Anual.</li>
+              <li>Confirme a solicitação. Mensagem: «Solicitação do plano … enviada. A gestão avalia em até 24h.»</li>
+              <li>Aparece a chave PIX (variável pública <code>NEXT_PUBLIC_PIX_KEY</code>) e o upload de comprovante (JPEG/PNG/WebP/PDF até 8 MB).</li>
+              <li>O envio do arquivo <strong>não ativa o plano</strong>. Texto da UI: «O envio não ativa o plano automaticamente.»</li>
+              <li>Pode <strong>cancelar</strong> a solicitação pendente (DELETE). Só uma pendente por vez (HTTP 409 se tentar outra).</li>
+            </ol>
+            <p><strong>Quem ativa.</strong> Admin em <strong>Solicitações</strong> aprova ou recusa. Upgrade aprovado gera <code>PlanPayment</code> e assinatura <code>active</code>. Downgrade para Free cancela a assinatura sem pagamento. Evidência: <code>lib/plan-change.ts</code> <code>reviewPlanChangeRequest</code>.</p>
+          </div>
+        </details>
+
+        <h3 id="manual-admin">Administração</h3>
+        <p>Pré-condição comum: <code>role=admin</code> e <code>status=active</code> no banco. Não admin é mandado para <code>/</code>; bloqueado para <code>/login</code>.</p>
+        <details data-search="painel saúde ffmpeg operação">
+          <summary>Painel — /admin</summary>
+          <div class="detail-body">
+            <p>Cards de clientes, ativos, Premium+Pro, receita. Alertas de solicitações pendentes e assinaturas vencidas. Atalhos para os módulos. Tabelas «Últimos clientes» e «Últimos pagamentos».</p>
+            <p><strong>Saúde da operação</strong> (<code>OperationsPanel</code>): FFmpeg disponível ou não, vídeos em processamento, atrasados (&gt; 3 h), falhas, espaço livre, última rotina de cobrança e de reenfileiramento. Dados em <code>GET /api/admin/operations</code> e arquivos em <code>storage/job-status</code>.</p>
+          </div>
+        </details>
+        <details data-search="clientes whatsapp criar bloquear">
+          <summary>Clientes — /admin/clientes</summary>
+          <div class="detail-body">
+            <p>Busca, filtros de plano/status/papel, paginação, CSV (<code>/api/admin/export/clientes</code>).</p>
+            <ol class="steps">
+              <li><strong>Novo cliente</strong>: nome, e-mail, senha, WhatsApp opcional, plano, papel. Após criar, a UI pode montar mensagem WhatsApp com login e senha temporária (<code>buildAccessWhatsAppUrl</code>) — isso não envia WhatsApp pelo servidor; abre <code>wa.me</code>.</li>
+              <li>Editar: nome, e-mail, plano (ajuste sem pagamento via <code>applyPlanChange</code>), papel, status, telefone, nova senha.</li>
+              <li>Bloquear / desbloquear; excluir (anonimização). Não é permitido deixar o sistema sem nenhum admin ativo (<code>countOtherActiveAdmins</code>).</li>
+              <li>Gaveta do cliente: histórico de pagamentos, registrar pagamento com comprovante, analisar solicitação pendente.</li>
+            </ol>
+          </div>
+        </details>
+        <details data-search="pagamentos receita csv">
+          <summary>Pagamentos — /admin/pagamentos</summary>
+          <div class="detail-body">
+            <p>Lista recebimentos com busca por cliente, filtro de plano e método (PIX, Cartão, Boleto, Manual). Totais de quantidade e receita. Botão <strong>CSV</strong> e <strong>Atualizar</strong>. Anexo de comprovante quando houver. Não há gateway: o registro é manual.</p>
+          </div>
+        </details>
+        <details data-search="assinaturas renovar cancelar sincronizar">
+          <summary>Assinaturas — /admin/assinaturas</summary>
+          <div class="detail-body">
+            <p>Filtro por status, busca, MRR/ARR calculados na API. Ações na modal: <strong>Renovar</strong> (novo ciclo + <code>PlanPayment</code>), <strong>Cancelar</strong> (plano do usuário vira free), <strong>Reativar</strong>. Botão de sincronizar chama <code>POST /api/admin/billing/sync</code> — o mesmo motor do cron de cobrança (status + e-mails de lembrete).</p>
+          </div>
+        </details>
+        <details data-search="solicitações aprovar recusar comprovante">
+          <summary>Solicitações — /admin/solicitacoes</summary>
+          <div class="detail-body">
+            <p>Filtro padrão: Pendente. Ao aprovar upgrade, informe método (PIX etc.) e nota opcional. Recusa grava <code>reviewNote</code>. Comprovante do cliente é consultado por rota autenticada de recibo, não por URL pública.</p>
+          </div>
+        </details>
+        <details data-search="auditoria log">
+          <summary>Auditoria — /admin/auditoria</summary>
+          <div class="detail-body">
+            <p>Lista <code>AdminAuditLog</code> com filtro por ação (criou cliente, registrou pagamento, login falho, etc.). Rótulos em <code>ACTION_LABEL</code> na própria página. Meta pode incluir IP. Logins falhos também entram aqui.</p>
+          </div>
+        </details>
+        <details data-search="vídeos autorais upload ffmpeg miniatura">
+          <summary>Vídeos autorais — /admin/videos</summary>
+          <div class="detail-body">
+            <p>Upload MP4/WebM/MOV até 3 GB, com barra de progresso (XHR para <code>/api/admin/videos/upload</code>). Campos: título, canal, notas, plano mínimo, publicado, categorias, lista extra de espectadores (máx. 50). Processamento em background: JPEG em <code>storage/thumbs</code>, variante ~480p, MP4 de playback se o original não tocar no browser. Status <code>processing</code> / <code>ready</code> / <code>error</code>. Grade recarrega a cada 4 s enquanto houver item processando.</p>
+            <p>Há rota paralela <code>POST /api/catalog/upload</code> (também admin) usada pelo modal de publicar no catálogo.</p>
+          </div>
+        </details>
+        <details data-search="cursos módulos aulas artigo rascunho publicado">
+          <summary>Cursos — /admin/cursos e editor</summary>
+          <div class="detail-body">
+            <ol class="steps">
+              <li>Lista com criar (<strong>título</strong>) e excluir. Excluir o curso apaga a trilha, não o arquivo de vídeo (comentário no schema: «Apagar o curso não apaga o arquivo — só a trilha»). Na prática o model <code>CourseLesson.video</code> tem <code>onDelete: Cascade</code> a partir do vídeo; apagar o curso dá cascade nos módulos/aulas, não nos <code>Video</code>.</li>
+              <li>Editor <code>/admin/cursos/[id]</code>: título, slug, descrição, aprendizados, capa, plano mínimo, ordem, status <strong>Rascunho/Publicado</strong> gravado na hora.</li>
+              <li>Módulos com arrastar-e-soltar. Nova aula: texto (artigo), upload, URL do YouTube ou escolher vídeo já existente.</li>
+              <li>Pré-visualização abre a landing pública com <code>?preview=1</code>.</li>
+            </ol>
+          </div>
+        </details>
+        <details data-search="scripts set-admin seed cron">
+          <summary>Operações sem tela (scripts e cron)</summary>
+          <div class="detail-body">
+            <ul>
+              <li><code>node scripts/set-admin.mjs</code> — promove o primeiro usuário a admin. Sem UI.</li>
+              <li><code>node scripts/list-users.mjs</code> — lista usuários no terminal.</li>
+              <li><code>node scripts/seed-test-users.mjs</code> — contas locais de teste. README pede para não usar em produção compartilhada.</li>
+              <li><code>npm run cron:billing</code> / <code>cron:videos</code> — disparam agora os POSTs de cron.</li>
+              <li><code>npm run cron:install</code> — registra tarefas no Agendador do Windows (cobrança 08:00; vídeos a cada 30 min).</li>
+            </ul>
+          </div>
+        </details>
+      </section>
+
+      <section id="fluxos" data-search="jornada fluxo diagrama">
+        <h2>5. Fluxo geral e jornadas</h2>
+        <h3>Mapa geral</h3>
+        <div class="diagram" role="img" aria-label="Visitante entra no catálogo; login abre biblioteca, plano e, se admin, o painel. Jobs falam com e-mail e FFmpeg.">
+          <svg viewBox="0 0 920 280" xmlns="http://www.w3.org/2000/svg">
+            <rect width="920" height="280" fill="#fffdf8"/>
+            <rect x="20" y="20" width="160" height="54" rx="8" fill="#e7eef6" stroke="#1e3a5f"/>
+            <text x="100" y="52" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">Visitante</text>
+            <rect x="220" y="20" width="160" height="54" rx="8" fill="#e4efe8" stroke="#1f4d3a"/>
+            <text x="300" y="52" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">/catalogo</text>
+            <rect x="420" y="20" width="160" height="54" rx="8" fill="#f6ead4" stroke="#8a5a12"/>
+            <text x="500" y="52" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">/login</text>
+            <rect x="620" y="20" width="140" height="54" rx="8" fill="#e4efe8" stroke="#1f4d3a"/>
+            <text x="690" y="42" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">Biblioteca /</text>
+            <text x="690" y="58" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">Plano / Conta</text>
+            <rect x="780" y="20" width="120" height="54" rx="8" fill="#f6e4e4" stroke="#8b1e1e"/>
+            <text x="840" y="52" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">/admin</text>
+            <path d="M180 47 H220" stroke="#5c564e" marker-end="url(#a)"/>
+            <path d="M380 47 H420" stroke="#5c564e"/>
+            <path d="M580 47 H620" stroke="#5c564e"/>
+            <path d="M760 47 H780" stroke="#5c564e"/>
+            <rect x="20" y="110" width="200" height="64" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/>
+            <text x="120" y="138" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">Next.js :3003</text>
+            <text x="120" y="156" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">App Router + proxy CSRF</text>
+            <rect x="250" y="110" width="150" height="64" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/>
+            <text x="325" y="138" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">MySQL</text>
+            <text x="325" y="156" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">Prisma 5</text>
+            <rect x="430" y="110" width="150" height="64" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/>
+            <text x="505" y="138" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">storage/</text>
+            <text x="505" y="156" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">vídeos, thumbs, recibos</text>
+            <rect x="610" y="110" width="140" height="64" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/>
+            <text x="680" y="138" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">Resend</text>
+            <text x="680" y="156" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">e-mail transacional</text>
+            <rect x="770" y="110" width="130" height="64" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/>
+            <text x="835" y="138" text-anchor="middle" font-size="13" font-family="Segoe UI,sans-serif">FFmpeg</text>
+            <text x="835" y="156" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">job local</text>
+            <rect x="20" y="200" width="280" height="56" rx="8" fill="#e7eef6" stroke="#1e3a5f"/>
+            <text x="160" y="225" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">Windows Task Scheduler</text>
+            <text x="160" y="242" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">POST /api/cron/billing e process-videos</text>
+            <rect x="330" y="200" width="250" height="56" rx="8" fill="#e7eef6" stroke="#1e3a5f"/>
+            <text x="455" y="225" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">YouTube</text>
+            <text x="455" y="242" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">oEmbed, playlist, miniaturas, embed</text>
+            <rect x="610" y="200" width="290" height="56" rx="8" fill="#f6ead4" stroke="#8a5a12"/>
+            <text x="755" y="225" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">PIX manual (sem gateway)</text>
+            <text x="755" y="242" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">chave na UI; admin confirma o pagamento</text>
+          </svg>
+          <p class="legend">Descrição: o browser fala só com o app Next. Persistência no MySQL e arquivos locais. E-mail, YouTube e FFmpeg são integrações. Cobrança não passa por operadora de cartão.</p>
+        </div>
+
+        <h3>Jornada A — Visitante assiste o gratuito</h3>
+        <ol class="steps">
+          <li><span class="step-meta">Ator: visitante · Tela: /catalogo · API: GET /api/catalog, GET /api/catalog/courses</span> — vê só o que o filtro de plano Free cobre, mais cards travados nos chips.</li>
+          <li><span class="step-meta">Player · GET /api/videos/[id]/stream</span> — se for upload Free publicado e <code>ready</code>, o stream Range é servido; senão 403/404/409.</li>
+          <li>Favoritar ou salvar progresso sem conta não persiste (rotas exigem <code>requireUserId</code>).</li>
+        </ol>
+
+        <h3>Jornada B — Cadastro, biblioteca e upgrade</h3>
+        <ol class="steps">
+          <li>Cadastra em /login → POST /api/auth/setup → User + ConsentimentoLgpd + e-mail → signIn.</li>
+          <li>Adiciona YouTube em / → POST /api/videos → Video (quota).</li>
+          <li>Em /plano pede Premium → PlanChangeRequest pending. Paga PIX fora do sistema. Envia comprovante → storage/receipts + campos na solicitação.</li>
+          <li>Admin aprova em /admin/solicitacoes → PATCH → User.plan, Subscription active, PlanPayment se for upgrade.</li>
+          <li>Próximo GET de catálogo chama <code>syncSubscriptionStatus</code> antes do paywall.</li>
+        </ol>
+        <div class="diagram" role="img" aria-label="Fluxo de troca de plano: pedido, PIX, comprovante, aprovação, assinatura ativa.">
+          <svg viewBox="0 0 900 160" xmlns="http://www.w3.org/2000/svg">
+            <rect width="900" height="160" fill="#fffdf8"/>
+            <rect x="10" y="50" width="120" height="50" rx="8" fill="#e4efe8" stroke="#1f4d3a"/><text x="70" y="80" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">POST /plano</text>
+            <rect x="160" y="50" width="140" height="50" rx="8" fill="#f6ead4" stroke="#8a5a12"/><text x="230" y="72" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">PlanChangeRequest</text><text x="230" y="88" text-anchor="middle" font-size="11" font-family="Segoe UI,sans-serif">pending</text>
+            <rect x="330" y="50" width="120" height="50" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="390" y="80" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">PIX externo</text>
+            <rect x="480" y="50" width="140" height="50" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="550" y="80" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">Comprovante</text>
+            <rect x="650" y="20" width="110" height="50" rx="8" fill="#e4efe8" stroke="#1f4d3a"/><text x="705" y="50" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">approve</text>
+            <rect x="650" y="90" width="110" height="50" rx="8" fill="#f6e4e4" stroke="#8b1e1e"/><text x="705" y="120" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">reject</text>
+            <rect x="790" y="20" width="100" height="50" rx="8" fill="#e7eef6" stroke="#1e3a5f"/><text x="840" y="50" text-anchor="middle" font-size="12" font-family="Segoe UI,sans-serif">plano ativo</text>
+            <path d="M130 75 H160 M300 75 H330 M450 75 H480 M620 75 H650" stroke="#5c564e"/>
+          </svg>
+        </div>
+
+        <h3>Jornada C — Assinatura vence sozinha</h3>
+        <ol class="steps">
+          <li>Cron diário ou botão Sincronizar: <code>runBillingMaintenance</code>.</li>
+          <li><code>computeSubscriptionStatus</code>: até a data = active; até +5 dias = overdue; depois = expired. <code>cancelled</code> não é sobrescrito.</li>
+          <li>Expired rebaixa <code>User.plan</code> para free na mesma transação.</li>
+          <li>E-mail «vence em até 7 dias» ou «em atraso», uma vez por janela (<code>lib/billing-reminders.ts</code>).</li>
+          <li>Conteúdo pago some na próxima checagem de catálogo.</li>
+        </ol>
+        <p><strong>Falha.</strong> Sem <code>CRON_SECRET</code>, sem app no ar no horário, ou PC desligado: lembretes não saem sozinhos. README descreve retry do Windows (<code>StartWhenAvailable</code>).</p>
+
+        <h3>Jornada D — Upload autoral</h3>
+        <ol class="steps">
+          <li>Admin envia arquivo → stream para temp → magic-bytes → <code>storage/videos</code> → Video status=processing.</li>
+          <li><code>enqueueVideoProcessing</code> (FFmpeg). Sem binário, fica em processing até o cron <code>process-videos</code> (itens stale &gt; 3 h, lote de 2).</li>
+          <li>Player: <code>/api/videos/[id]/stream?quality=480|source</code>, Cache-Control private no-cache, ETag/304. Sem CDN pública de propósito.</li>
+        </ol>
+
+        <h3>Ramificações de autenticação</h3>
+        <ul>
+          <li>Senha errada / bloqueado / deletado: mesmo falha de login + audit <code>auth.login_fail</code>.</li>
+          <li>JWT expirado via <code>sessionEndsAt</code>: token é marcado blocked no callback.</li>
+          <li>CSRF: Origin diferente de <code>NEXTAUTH_URL</code> e do Host → 403 «Origem não permitida».</li>
+        </ul>
+      </section>
+
+      <section id="arquitetura" data-search="arquitetura API cron ffmpeg resend">
+        <h2>6. Arquitetura, telas, APIs e processos</h2>
+        <h3>Stack confirmada no repositório</h3>
+        <p>Next.js 16.2.9 App Router, React 19, TypeScript, Prisma 5.22 + MySQL, NextAuth v4 (Credentials + JWT), Tailwind via <code>app/css/app.css</code>, Zod, react-hook-form, TanStack Query, Vitest, Playwright. Porta de dev: <code>0.0.0.0:3003</code> (<code>package.json</code> script <code>dev</code>). Boot de produção: <code>instrumentation.ts</code> escolhe DATABASE_URL que responde e roda <code>prisma migrate deploy</code>.</p>
+        <div class="arch">
+          <div class="arch-row">
+            <div class="box"><b>UI</b>app/*/page.tsx · AppHeader · player</div>
+            <span class="arrow">→</span>
+            <div class="box"><b>Route handlers</b>app/api/**/route.ts</div>
+            <span class="arrow">→</span>
+            <div class="box"><b>lib/</b>session, billing, course, ffmpeg</div>
+            <span class="arrow">→</span>
+            <div class="box"><b>Prisma / disco</b>MySQL + storage/</div>
+          </div>
+        </div>
+
+        <h3>Telas (App Router)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Rota</th><th>Arquivo</th><th>Auth</th></tr></thead>
+            <tbody>
+              <tr><td>/</td><td>app/page.tsx</td><td>Usuário; senão → /catalogo</td></tr>
+              <tr><td>/catalogo</td><td>app/catalogo/page.tsx</td><td>Pública</td></tr>
+              <tr><td>/catalogo/cursos/[slug]</td><td>app/catalogo/cursos/[slug]/page.tsx</td><td>Pública; 404 se rascunho</td></tr>
+              <tr><td>/historico /estatisticas /plano /conta</td><td>app/historico, estatisticas, plano, conta</td><td>Usuário</td></tr>
+              <tr><td>/login /esqueci-senha /redefinir-senha /verificar-email</td><td>app/login e correlatas</td><td>Públicas</td></tr>
+              <tr><td>/termos /privacidade</td><td>app/termos, privacidade</td><td>Públicas, versão 2026-09-15</td></tr>
+              <tr><td>/c/[token]</td><td>app/c/[token]/page.tsx</td><td>Pública</td></tr>
+              <tr><td>/admin e subrotas</td><td>app/admin/**</td><td>Admin (proxy + layout)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>APIs HTTP</h3>
+        <p>Mutações JSON same-origin. Cron e NextAuth nativo ficam de fora do CSRF de Origin. Paginação padrão 24, máximo 48 (<code>lib/pagination.ts</code>), 200 no modo manual da biblioteca.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Método e rota</th><th>Quem</th><th>Função</th></tr></thead>
+            <tbody>
+              <tr><td>POST /api/auth/[...nextauth]</td><td>Público (CSRF NextAuth)</td><td>Login Credentials</td></tr>
+              <tr><td>POST /api/auth/setup</td><td>Público + rate limit</td><td>Cadastro</td></tr>
+              <tr><td>POST /api/auth/forgot-password</td><td>Público</td><td>Pedido de reset</td></tr>
+              <tr><td>POST /api/auth/reset-password</td><td>Público</td><td>Nova senha com token</td></tr>
+              <tr><td>POST /api/auth/verify-email</td><td>Público</td><td>Confirma token</td></tr>
+              <tr><td>POST /api/auth/resend-verification</td><td>Usuário</td><td>Reenvio</td></tr>
+              <tr><td>GET/PATCH/DELETE /api/account</td><td>Usuário</td><td>Perfil, senha, exclusão</td></tr>
+              <tr><td>GET /api/account/export</td><td>Usuário</td><td>Pacote LGPD</td></tr>
+              <tr><td>GET/POST /api/videos</td><td>Usuário</td><td>Biblioteca YouTube</td></tr>
+              <tr><td>PATCH/DELETE /api/videos/[id]</td><td>Usuário (dono/share edit)</td><td>Editar/apagar</td></tr>
+              <tr><td>PATCH .../favorite, /watched</td><td>Usuário</td><td>Flags da biblioteca</td></tr>
+              <tr><td>GET/POST/DELETE .../share</td><td>Usuário</td><td>VideoShare</td></tr>
+              <tr><td>GET .../stream, /thumbnail</td><td>Paywall catálogo</td><td>Arquivo autoral</td></tr>
+              <tr><td>GET /api/videos/random</td><td>Usuário</td><td>Aleatório da biblioteca</td></tr>
+              <tr><td>GET/POST /api/categories · PATCH/DELETE /[id]</td><td>Usuário</td><td>Categorias próprias</td></tr>
+              <tr><td>GET/POST /api/collections · PATCH/DELETE /[id]</td><td>Membro/dono</td><td>Coleções e link público</td></tr>
+              <tr><td>GET/POST/DELETE .../videos, .../invite</td><td>Papel da coleção</td><td>Itens e convites</td></tr>
+              <tr><td>GET /api/shared</td><td>Usuário</td><td>Vídeos recebidos</td></tr>
+              <tr><td>POST /api/import · /api/playlist</td><td>Usuário</td><td>JSON / playlist YouTube</td></tr>
+              <tr><td>GET /api/export · /api/stats</td><td>Usuário</td><td>Backup JSON e números</td></tr>
+              <tr><td>GET /api/users/search</td><td>Usuário + rate limit</td><td>Autocomplete de pessoas</td></tr>
+              <tr><td>GET/POST /api/catalog</td><td>GET público; POST admin</td><td>Vitrine / publicar YouTube</td></tr>
+              <tr><td>POST /api/catalog/upload</td><td>Admin</td><td>Upload para o catálogo</td></tr>
+              <tr><td>PATCH/DELETE /api/catalog/[id]</td><td>Admin/dono</td><td>Metadados do item</td></tr>
+              <tr><td>PATCH .../favorite · GET/PATCH .../progress</td><td>Usuário + acesso</td><td>Favorite e WatchProgress</td></tr>
+              <tr><td>GET/PUT/DELETE .../grants</td><td>Dono/admin</td><td>Lista extra (máx. 50)</td></tr>
+              <tr><td>GET /api/catalog/continue</td><td>Usuário</td><td>Continuar assistindo</td></tr>
+              <tr><td>GET /api/catalog/courses · .../courses/[slug]</td><td>Público</td><td>Trilhas</td></tr>
+              <tr><td>GET/POST /api/plano · DELETE</td><td>Usuário</td><td>Pedido / cancelar</td></tr>
+              <tr><td>POST/GET /api/plano/comprovante</td><td>Titular</td><td>Upload/download do recibo</td></tr>
+              <tr><td>CRUD /api/admin/users · /users/[id]</td><td>Admin</td><td>Clientes</td></tr>
+              <tr><td>GET/POST /api/admin/payments · GET /[userId]</td><td>Admin</td><td>Recebimentos</td></tr>
+              <tr><td>GET /api/admin/assinaturas · PATCH /[id]</td><td>Admin</td><td>Ciclo de vida</td></tr>
+              <tr><td>GET /api/admin/solicitacoes · PATCH /[id]</td><td>Admin</td><td>Aprovar/recusar</td></tr>
+              <tr><td>GET /api/admin/audit</td><td>Admin</td><td>Logs</td></tr>
+              <tr><td>GET /api/admin/videos · PATCH/DELETE /[id] · POST /upload</td><td>Admin</td><td>Acervo autoral</td></tr>
+              <tr><td>GET/POST /api/admin/courses · GET/PATCH/DELETE /[id] · PUT .../curriculum</td><td>Admin</td><td>Cursos</td></tr>
+              <tr><td>GET /api/admin/courses/videos · POST /lessons</td><td>Admin</td><td>Picker e criação de aula</td></tr>
+              <tr><td>GET /api/admin/receipts/[id] · POST</td><td>Admin</td><td>Comprovante de pagamento</td></tr>
+              <tr><td>GET /api/admin/export/clientes|pagamentos</td><td>Admin</td><td>CSV + audit export.*</td></tr>
+              <tr><td>POST /api/admin/billing/sync</td><td>Admin</td><td>Mesmo job do cron</td></tr>
+              <tr><td>GET /api/admin/operations</td><td>Admin</td><td>Saúde</td></tr>
+              <tr><td>POST /api/cron/billing · /process-videos</td><td>Bearer CRON_SECRET</td><td>Jobs</td></tr>
+              <tr><td>GET /api/health</td><td>Público (sem segredos de senha)</td><td>Ping MySQL, host, migrate</td></tr>
+              <tr><td>GET /api/c/[token]</td><td>Público + rate limit</td><td>Coleção compartilhada</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Integrações externas</h3>
+        <ul>
+          <li><strong>Resend</strong> — senha, verificação, lembretes de cobrança (<code>lib/email.ts</code>).</li>
+          <li><strong>YouTube</strong> — oEmbed e scrape de playlist no servidor; miniaturas CDN; iframe no player (CSP <code>frame-src https://www.youtube.com</code>).</li>
+          <li><strong>FFmpeg/ffprobe</strong> — locais, paths opcionais no ambiente.</li>
+          <li><strong>WhatsApp</strong> — só URL <code>wa.me</code> montada no cliente admin; sem API oficial.</li>
+          <li><strong>PIX</strong> — chave exibida; sem PSP.</li>
+        </ul>
+        <h3>Processos internos e armazenamento</h3>
+        <ul>
+          <li><code>storage/videos</code>, <code>storage/thumbs</code>, <code>storage/receipts</code>, <code>storage/job-status</code> — fora de <code>/public</code>.</li>
+          <li>Logs de cron citados no README: <code>logs/billing-cron.log</code> e <code>logs/process-videos-cron.log</code> (scripts PowerShell).</li>
+          <li>CI: <code>.github/workflows/ci.yml</code> — lint, test, build em push/PR.</li>
+        </ul>
+      </section>
+
+      <section id="banco" data-search="banco mysql tabelas prisma dicionário">
+        <h2>7. Bancos e dicionário das tabelas</h2>
+        <div class="meta-grid">
+          <div class="meta-card"><b>Tecnologia</b>MySQL (InnoDB exigido para FKs)</div>
+          <div class="meta-card"><b>ORM</b>Prisma 5, datasource em <code>prisma/schema.prisma</code></div>
+          <div class="meta-card"><b>Nome da conexão</b>Variável <code>DATABASE_URL</code>. Em produção o boot também lê <code>.env.production</code> (<code>lib/pick-database.ts</code>).</div>
+          <div class="meta-card"><b>Nome físico</b>Exemplo de desenvolvimento em <code>.env.example</code>: banco <code>flix</code> em localhost. Nome efetivo de produção: não identificado nesta análise; configurado por <code>DATABASE_URL</code>.</div>
+          <div class="meta-card"><b>Schema/namespace</b>Schema default do MySQL (sem schema Prisma nomeado). Tabelas físicas = nomes dos models (<code>User</code>, <code>Video</code>, …), confirmado nas migrations.</div>
+          <div class="meta-card"><b>Conferência viva</b>Não realizada. Dicionário = schema atual + migrations até <code>20260918200000_video_source_article</code>.</div>
+        </div>
+        <p>Tipos abaixo são os do Prisma. Strings viram VARCHAR(191) salvo anotação. Decimais de dinheiro: Decimal(10,2). Enums MySQL nas migrations posteriores a <code>20260820190000_domain_enums</code>.</p>
+
+        <details open data-search="User email role plan status deletadoEm">
+          <summary>User — conta</summary>
+          <div class="detail-body">
+            <p>Finalidade: autenticação, papel, plano e titularidade de conteúdo. PK <code>id</code>. Único: <code>email</code>. Índices: <code>deletadoEm</code>, <code>criadoPorId</code>.</p>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Campo</th><th>Tipo</th><th>Nulo / padrão</th><th>Notas</th></tr></thead>
+              <tbody>
+                <tr><td>id</td><td>Int AI</td><td>PK</td><td></td></tr>
+                <tr><td>email</td><td>String unique</td><td>obrigatório</td><td>Anonimizado na exclusão</td></tr>
+                <tr><td>name</td><td>String?</td><td>nulo</td><td></td></tr>
+                <tr><td>phone</td><td>VarChar(20)?</td><td>nulo</td><td>WhatsApp</td></tr>
+                <tr><td>password</td><td>String</td><td>hash bcrypt</td><td>Nunca documentar valor</td></tr>
+                <tr><td>createdAt</td><td>DateTime</td><td>now()</td><td></td></tr>
+                <tr><td>emailVerifiedAt</td><td>DateTime?</td><td>nulo</td><td></td></tr>
+                <tr><td>role</td><td>UserRole</td><td>user</td><td>user | admin</td></tr>
+                <tr><td>plan</td><td>UserPlan</td><td>free</td><td>free | premium | pro</td></tr>
+                <tr><td>status</td><td>UserStatus</td><td>active</td><td>active | blocked</td></tr>
+                <tr><td>deletadoEm</td><td>DateTime?</td><td>nulo</td><td>soft delete LGPD</td></tr>
+                <tr><td>criadoPorId</td><td>Int?</td><td>FK User SET NULL</td><td>admin que criou</td></tr>
+              </tbody>
+            </table></div>
+            <p>CRUD: cadastro, admin users, conta, login. Relação 1:1 com Subscription; 1:N vídeos, pagamentos, etc.</p>
+          </div>
+        </details>
+        <details data-search="EmailVerificationToken PasswordResetToken">
+          <summary>EmailVerificationToken e PasswordResetToken</summary>
+          <div class="detail-body">
+            <p>Ambos: id, userId (FK Cascade), tokenHash unique (SHA-256), expiresAt, usedAt, createdAt. Índice (userId, expiresAt). Tokens crus só no e-mail.</p>
+          </div>
+        </details>
+        <details data-search="Favorite WatchProgress">
+          <summary>Favorite e WatchProgress — catálogo por usuário</summary>
+          <div class="detail-body">
+            <p>Não usar <code>Video.favorite</code> / um campo único de progresso no catálogo: vazaria entre assinantes. Unique (userId, videoId). Favorite: createdAt. WatchProgress: seconds default 0, updatedAt.</p>
+          </div>
+        </details>
+        <details data-search="Subscription billing overdue expired">
+          <summary>Subscription — assinatura paga</summary>
+          <div class="detail-body">
+            <p>1:1 com User (<code>userId</code> unique). Campos: plan, billing (monthly|annual), amount Decimal(10,2), startDate, nextBillingDate, status (active|overdue|cancelled|expired), cancelledAt, lastReminderType, lastReminderAt, timestamps. Índice (status, nextBillingDate). Cascade no user; payments SET NULL na assinatura.</p>
+          </div>
+        </details>
+        <details data-search="PlanChangeRequest comprovante">
+          <summary>PlanChangeRequest — pedido de troca</summary>
+          <div class="detail-body">
+            <p>fromPlan, toPlan, billing, amount, note, status (pending|approved|rejected|cancelled), reviewedBy SET NULL, reviewedAt, receiptPath/Mime/Size, reviewNote, timestamps. Índices (status, createdAt) e (userId, status).</p>
+          </div>
+        </details>
+        <details data-search="PlanPayment pagamento recibo">
+          <summary>PlanPayment — recebimento</summary>
+          <div class="detail-body">
+            <p>userId Restrict (não some o financeiro se a conta for apagada por engano — migration LGPD). subscriptionId SET NULL. plan, billing, amount, method (pix|card|boleto|manual), note, idempotencyKey unique, recibo, criadoPorId SET NULL, createdAt. Índice (userId, createdAt).</p>
+          </div>
+        </details>
+        <details data-search="ConsentimentoLgpd termos">
+          <summary>ConsentimentoLgpd</summary>
+          <div class="detail-body">
+            <p>tipo (termos_uso | politica_privacidade no código), aceito, versao, ip, criadoEm. Índice (userId, tipo). Cascade.</p>
+          </div>
+        </details>
+        <details data-search="AdminAuditLog">
+          <summary>AdminAuditLog</summary>
+          <div class="detail-body">
+            <p>adminId SET NULL, action, targetType, targetId, meta Text (JSON string), createdAt. Ações listadas em <code>lib/audit.ts</code>.</p>
+          </div>
+        </details>
+        <details data-search="Category VideoCategory">
+          <summary>Category e VideoCategory</summary>
+          <div class="detail-body">
+            <p>Category: userId Cascade, name, color default #e85d04, unique (userId, name). N:N com Video via VideoCategory PK composta (videoId, categoryId), ambos Cascade.</p>
+          </div>
+        </details>
+        <details data-search="Video upload youtube article processing">
+          <summary>Video — biblioteca e catálogo</summary>
+          <div class="detail-body">
+            <p>Uma tabela serve os dois produtos. Biblioteca usa source youtube + flags watched/favorite na própria linha. Catálogo usa published, requiredPlan, source upload/youtube/article.</p>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Campo</th><th>Tipo</th><th>Notas</th></tr></thead>
+              <tbody>
+                <tr><td>id, userId</td><td>Int, FK Cascade</td><td>Dono (admin no catálogo autoral)</td></tr>
+                <tr><td>url, videoId</td><td>String?</td><td>YouTube</td></tr>
+                <tr><td>title, thumbnail, duration, channelName, notes</td><td>String / Text</td><td>notes também alimenta artigo</td></tr>
+                <tr><td>watched, watchedAt, favorite, sortOrder</td><td>flags da biblioteca</td><td>Não usar favorite para catálogo multi-usuário</td></tr>
+                <tr><td>source</td><td>youtube | upload | article</td><td></td></tr>
+                <tr><td>filePath, mimeType, fileSize</td><td>arquivo original</td><td>fora de /public</td></tr>
+                <tr><td>status</td><td>processing | ready | error</td><td></td></tr>
+                <tr><td>published, requiredPlan</td><td>paywall</td><td></td></tr>
+                <tr><td>previewPath, playbackPath, thumbPath</td><td>derivados FFmpeg</td><td></td></tr>
+                <tr><td>processingStartedAt, processError</td><td>job</td><td>VarChar(500)</td></tr>
+              </tbody>
+            </table></div>
+            <p>Índices: (userId, createdAt), (userId, sortOrder), (userId, videoId), (source, published, status), (status, processingStartedAt).</p>
+          </div>
+        </details>
+        <details data-search="VideoShare VideoAccessGrant">
+          <summary>VideoShare e VideoAccessGrant</summary>
+          <div class="detail-body">
+            <p><strong>VideoShare</strong>: colaboração da biblioteca (fromUser, toUser, permission view|edit), unique (videoId, toUserId), Cascade.</p>
+            <p><strong>VideoAccessGrant</strong>: exceção do catálogo (presente/beta). PK (videoId, userId), grantedBy SET NULL. Não mistura com share. Máximo 50 IDs por substituição.</p>
+          </div>
+        </details>
+        <details data-search="Collection CollectionMember CollectionVideo">
+          <summary>Collection, CollectionMember, CollectionVideo</summary>
+          <div class="detail-body">
+            <p>Collection: name, ownerId Cascade, isPublic, shareToken unique 64. Member PK (collectionId, userId), role owner|editor|viewer. CollectionVideo PK (collectionId, videoId), addedBy, addedAt. Convite: owner/editor; viewer não convida.</p>
+          </div>
+        </details>
+        <details data-search="Course CourseModule CourseLesson">
+          <summary>Course, CourseModule, CourseLesson</summary>
+          <div class="detail-body">
+            <p>Course: title, slug unique, description Text, thumbnail 500, learnings Text, requiredPlan, published default false, sortOrder. Module: courseId Cascade, title, sortOrder. Lesson: moduleId Cascade, videoId unique Cascade para Video, sortOrder. Uma aula = um Video. Índice (published, sortOrder) no curso.</p>
+          </div>
+        </details>
+        <details data-search="RateLimitBucket">
+          <summary>RateLimitBucket</summary>
+          <div class="detail-body">
+            <p>chave PK VarChar(191), count, resetAt. Contador compartilhado entre instâncias. Fallback em memória se a tabela/banco falhar (<code>lib/rate-limit.ts</code>).</p>
+          </div>
+        </details>
+        <p>Não há views, triggers ou procedures no repositório. Políticas de acesso são da aplicação, não do MySQL. DTOs TypeScript não foram tratados como tabelas.</p>
+      </section>
+
+      <section id="relacionamentos" data-search="relacionamentos ER mapa funcionalidades dados">
+        <h2>8. Relacionamentos e mapa função → dados</h2>
+        <div class="diagram" role="img" aria-label="Diagrama de relacionamentos principais do MySQL conforme o schema Prisma.">
+          <svg viewBox="0 0 980 520" xmlns="http://www.w3.org/2000/svg">
+            <rect width="980" height="520" fill="#fffdf8"/>
+            <g font-family="Segoe UI,sans-serif" font-size="12">
+              <rect x="40" y="30" width="140" height="46" rx="8" fill="#e4efe8" stroke="#1f4d3a"/><text x="110" y="58" text-anchor="middle">User</text>
+              <rect x="250" y="20" width="150" height="40" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="325" y="44" text-anchor="middle">Subscription 1:1</text>
+              <rect x="250" y="70" width="150" height="40" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="325" y="94" text-anchor="middle">PlanPayment N</text>
+              <rect x="250" y="120" width="170" height="40" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="335" y="144" text-anchor="middle">PlanChangeRequest N</text>
+              <rect x="40" y="200" width="140" height="40" rx="8" fill="#e7eef6" stroke="#1e3a5f"/><text x="110" y="224" text-anchor="middle">Video N</text>
+              <rect x="250" y="180" width="140" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="320" y="202" text-anchor="middle">Category N:N</text>
+              <rect x="250" y="226" width="140" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="320" y="248" text-anchor="middle">Favorite N:N</text>
+              <rect x="250" y="272" width="160" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="330" y="294" text-anchor="middle">WatchProgress</text>
+              <rect x="250" y="318" width="160" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="330" y="340" text-anchor="middle">VideoShare</text>
+              <rect x="250" y="364" width="180" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="340" y="386" text-anchor="middle">VideoAccessGrant</text>
+              <rect x="520" y="200" width="150" height="40" rx="8" fill="#f6ead4" stroke="#8a5a12"/><text x="595" y="224" text-anchor="middle">Collection</text>
+              <rect x="700" y="180" width="160" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="780" y="202" text-anchor="middle">CollectionMember</text>
+              <rect x="700" y="226" width="160" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="780" y="248" text-anchor="middle">CollectionVideo</text>
+              <rect x="520" y="320" width="150" height="40" rx="8" fill="#f6e4e4" stroke="#8b1e1e"/><text x="595" y="344" text-anchor="middle">Course</text>
+              <rect x="700" y="300" width="150" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="775" y="322" text-anchor="middle">CourseModule</text>
+              <rect x="700" y="348" width="200" height="36" rx="8" fill="#f8f4ec" stroke="#d9d2c5"/><text x="800" y="370" text-anchor="middle">CourseLesson → Video</text>
+              <rect x="40" y="440" width="200" height="40" rx="8" fill="#e7eef6" stroke="#1e3a5f"/><text x="140" y="464" text-anchor="middle">ConsentimentoLgpd</text>
+              <rect x="260" y="440" width="180" height="40" rx="8" fill="#e7eef6" stroke="#1e3a5f"/><text x="350" y="464" text-anchor="middle">AdminAuditLog</text>
+              <rect x="460" y="440" width="180" height="40" rx="8" fill="#e7eef6" stroke="#1e3a5f"/><text x="550" y="464" text-anchor="middle">RateLimitBucket</text>
+              <rect x="660" y="440" width="220" height="40" rx="8" fill="#e7eef6" stroke="#1e3a5f"/><text x="770" y="464" text-anchor="middle">Tokens e-mail/senha</text>
+            </g>
+          </svg>
+          <p class="legend">Cardinalidades: User 1—1 Subscription; User 1—N Video, Payment, Request; Video N—N Category/User (favorite, progress, grant); Course 1—N Module 1—N Lesson 1—1 Video.</p>
+        </div>
+        <h3>Funcionalidade → tabelas</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Funcionalidade</th><th>Tabelas principais</th><th>Arquivos em disco</th></tr></thead>
+          <tbody>
+            <tr><td>Login / cadastro</td><td>User, ConsentimentoLgpd, RateLimitBucket, AdminAuditLog</td><td>—</td></tr>
+            <tr><td>Biblioteca YouTube</td><td>Video, Category, VideoCategory</td><td>—</td></tr>
+            <tr><td>Coleções</td><td>Collection, Member, CollectionVideo</td><td>—</td></tr>
+            <tr><td>Catálogo / player</td><td>Video, Favorite, WatchProgress, VideoAccessGrant</td><td>storage/videos, thumbs</td></tr>
+            <tr><td>Cursos</td><td>Course, CourseModule, CourseLesson, Video</td><td>mesmo storage se upload</td></tr>
+            <tr><td>Plano / PIX</td><td>PlanChangeRequest, Subscription, PlanPayment</td><td>storage/receipts</td></tr>
+            <tr><td>Admin clientes</td><td>User, Subscription, PlanPayment, AdminAuditLog</td><td>—</td></tr>
+            <tr><td>Jobs</td><td>Subscription, Video, RateLimitBucket</td><td>storage/job-status, logs/</td></tr>
+            <tr><td>Exclusão LGPD</td><td>User (anonimiza), apaga Video/Collection/tokens</td><td>remove arquivos de upload</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section id="regras" data-search="regras estados paywall quota graça">
+        <h2>9. Regras de negócio e estados</h2>
+        <h3>Planos e quota da biblioteca</h3>
+        <ul>
+          <li>Hierarquia free &lt; premium &lt; pro (<code>PLAN_ORDER</code>).</li>
+          <li>Limites de quantidade de <code>Video</code> do usuário: 20 / 100 / ∞. Vale para qualquer source, inclusive aulas criadas pelo admin na conta admin.</li>
+          <li>Assinatura expirada: plano efetivo free mesmo se a coluna ainda não tiver sido rebaixada; <code>syncSubscriptionStatus</code> rebaixa de fato.</li>
+          <li>Graça: 5 dias (<code>SUBSCRIPTION_GRACE_DAYS</code>).</li>
+        </ul>
+        <h3>Estados de Subscription</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Estado</th><th>Quando</th><th>Efeito</th></tr></thead>
+          <tbody>
+            <tr><td>active</td><td>Agora ≤ nextBillingDate</td><td>Plano pago vale</td></tr>
+            <tr><td>overdue</td><td>Venceu, ainda na graça</td><td>Ainda não cai para free; lembrete overdue</td></tr>
+            <tr><td>expired</td><td>Após graça</td><td>User.plan = free</td></tr>
+            <tr><td>cancelled</td><td>Admin ou downgrade Free</td><td>Não é recalculado pelo job</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Estados de PlanChangeRequest</h3>
+        <p>pending → approved | rejected | cancelled. Já analisada → HTTP 409. Upgrade gera pagamento; downgrade para free não.</p>
+        <h3>Estados de Video (upload)</h3>
+        <p>processing → ready | error. Stream só se ready. Publicado=false some para estranhos (404, não 403) salvo dono/admin.</p>
+        <h3>Paywall do catálogo</h3>
+        <p><code>canAccessCatalogVideo</code>: dono e admin sempre. Demais: published E (plano cobre OU grant). Visitante = free. Grant não abre rascunho.</p>
+        <h3>Curso</h3>
+        <p>Card travado pelo <code>Course.requiredPlan</code>. Cada aula ainda checa o Video. Aula em curso some da grade avulsa. Artigo: source=article, duração 1:00 para progresso.</p>
+        <h3>User.status</h3>
+        <p>blocked: APIs 401, admin gate manda para login, authorize recusa. deletadoEm: tratado como inexistente no login e na sessão.</p>
+      </section>
+
+      <section id="cobertura" data-search="cobertura evidências pendências matriz">
+        <h2>10. Matriz de cobertura, evidências e pendências</h2>
+        <p>Inventário inicial: 23 páginas <code>page.tsx</code>, 65 <code>route.ts</code> de API, 22 models Prisma, 10 scripts, 2 crons, CI. Tudo abaixo está neste HTML ou marcado pendente.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Item</th><th>Evidência</th><th>Seção</th><th>Status</th><th>Lacuna</th></tr></thead>
+          <tbody>
+            <tr><td>Telas App Router (23)</td><td>glob app/**/page.tsx</td><td>6 e 4</td><td><span class="badge ok">Código</span></td><td>UX não exercitada no browser desta análise</td></tr>
+            <tr><td>APIs (65 rotas)</td><td>grep export function GET|POST|…</td><td>6</td><td><span class="badge ok">Código</span></td><td>Comportamento 4xx/5xx de rede não medido</td></tr>
+            <tr><td>Models / tabelas (22)</td><td>schema.prisma + CREATE TABLE nas migrations</td><td>7–8</td><td><span class="badge ok">Schema repo</span></td><td>Banco vivo não inspecionado; nome físico prod. desconhecido</td></tr>
+            <tr><td>Auth e admin gate</td><td>lib/auth.ts, proxy.ts, admin-gate.ts, admin/layout.tsx</td><td>3</td><td><span class="badge ok">Código</span></td><td>—</td></tr>
+            <tr><td>Paywall e grants</td><td>lib/session.ts, catalog-access.ts, video-grants.ts</td><td>9</td><td><span class="badge ok">Código</span></td><td>—</td></tr>
+            <tr><td>Cobrança / PIX</td><td>plan-change.ts, billing.ts, plano/page.tsx</td><td>4 e 5</td><td><span class="badge ok">Código</span></td><td>PIX é fora da aplicação; conciliação humana</td></tr>
+            <tr><td>FFmpeg / cron vídeos</td><td>video-process.ts, cron/process-videos</td><td>5–6</td><td><span class="badge ok">Código</span></td><td>Dependem de binário e tarefa Windows instalada</td></tr>
+            <tr><td>E-mail Resend</td><td>lib/email.ts</td><td>6</td><td><span class="badge warn">Condicional</span></td><td>Sem API key não envia (só log em dev)</td></tr>
+            <tr><td>PLAN_FEATURES vs API</td><td>plan-config.ts vs collections/export</td><td>3</td><td><span class="badge warn">Divergência</span></td><td>Coleção/export sem checagem de plano</td></tr>
+            <tr><td>requireVerifiedEmail</td><td>lib/email-verification.ts; rotas catalog não chamam</td><td>4</td><td><span class="badge warn">Pouco usado</span></td><td>Publicação é admin-only</td></tr>
+            <tr><td>Métodos card/boleto</td><td>enum PaymentMethod + UI admin</td><td>4</td><td><span class="badge info">Registro manual</span></td><td>Sem gateway</td></tr>
+            <tr><td>Scripts CLI</td><td>scripts/*.mjs, *.ps1</td><td>4</td><td><span class="badge ok">Código</span></td><td>Não executados aqui</td></tr>
+            <tr><td>CI</td><td>.github/workflows/ci.yml</td><td>6</td><td><span class="badge ok">Arquivo</span></td><td>Resultado do último run não consultado</td></tr>
+            <tr><td>Health</td><td>app/api/health/route.ts</td><td>6</td><td><span class="badge ok">Código</span></td><td>Não chamado nesta análise</td></tr>
+            <tr><td>Diagnóstico / rename tables</td><td>commits 6117488 / b083370; grep atual vazio</td><td>—</td><td><span class="badge ok">Removido</span></td><td>Não está mais no tree</td></tr>
+            <tr><td>SKILL.md na raiz</td><td>git status untracked</td><td>—</td><td><span class="badge info">Fora do produto</span></td><td>Não documentado como feature</td></tr>
+            <tr><td>docs/auditoria.html</td><td>arquivo pré-existente</td><td>—</td><td><span class="badge info">Outro doc</span></td><td>Preservado; este mapa é outro arquivo</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Limitações materiais desta documentação</h3>
+        <ul>
+          <li>Não houve conexão ao MySQL nem execução de migrações, seeds ou crons.</li>
+          <li>Não se afirma que os fluxos foram testados em execução — só lidos.</li>
+          <li>Segredos de ambiente não foram copiados. Hosts de exemplo do README/.env.example não são prova do banco de produção.</li>
+          <li>Cobertura integral do repositório de código de produto: sim, para rotas de página, APIs listadas e models. Testes unitários/e2e existem (<code>*.test.ts</code>, <code>e2e/</code>) e foram usados como pista, não como prova de QA verde hoje.</li>
+        </ul>
+      </section>
+
+      <footer>
+        <p>Arquivo gerado em 17/09/2026 a partir do commit <code>ce3a658</code>. Abrir por duplo clique. Sem CDN. Busca e âncoras funcionam offline.</p>
+      </footer>
+    </main>
+  </div>
+  <script>
+    (function () {
+      var input = document.getElementById("busca");
+      var meta = document.getElementById("busca-meta");
+      var empty = document.getElementById("sem-resultado");
+      var root = document.getElementById("conteudo");
+      if (!input || !meta || !root) return;
+
+      var units = Array.prototype.slice.call(root.querySelectorAll("details, article.card, .meta-card, .callout, .table-wrap, .diagram, h3, h4, p.lede"));
+      var sections = Array.prototype.slice.call(root.querySelectorAll("section, header"));
+
+      function norm(s) {
+        return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      }
+
+      function haystack(el) {
+        return norm(el.textContent || "") + " " + norm(el.getAttribute("data-search") || "");
+      }
+
+      function apply() {
+        var q = input.value.trim();
+        var nq = norm(q);
+        var shown = 0;
+        var total = units.length;
+
+        for (var i = 0; i < units.length; i++) {
+          units[i].classList.remove("is-hidden-by-search");
+          units[i].style.display = "";
+          if (units[i].tagName === "DETAILS" && !units[i].dataset.keepOpen) {
+            units[i].dataset.keepOpen = units[i].hasAttribute("open") ? "1" : "0";
+          }
+        }
+        for (var s = 0; s < sections.length; s++) {
+          sections[s].classList.remove("is-hidden-by-search");
+          sections[s].style.display = "";
+        }
+
+        if (!nq) {
+          for (var j = 0; j < units.length; j++) {
+            var d = units[j];
+            if (d.tagName === "DETAILS" && d.dataset.keepOpen === "0") d.removeAttribute("open");
+            if (d.tagName === "DETAILS" && d.dataset.keepOpen === "1") d.setAttribute("open", "");
+          }
+          meta.textContent = "Busca local. Sem filtro ativo.";
+          empty.hidden = true;
+          document.body.classList.remove("has-empty");
+          return;
+        }
+
+        for (var k = 0; k < units.length; k++) {
+          var block = units[k];
+          var match = haystack(block).indexOf(nq) !== -1;
+          if (match) {
+            shown += 1;
+            if (block.tagName === "DETAILS") block.setAttribute("open", "");
+          } else {
+            block.classList.add("is-hidden-by-search");
+            block.style.display = "none";
+          }
+        }
+
+        for (var t = 0; t < sections.length; t++) {
+          var sec = sections[t];
+          var visibleChild = sec.querySelector("details:not(.is-hidden-by-search), article.card:not(.is-hidden-by-search), .meta-card:not(.is-hidden-by-search), .callout:not(.is-hidden-by-search), .table-wrap:not(.is-hidden-by-search), .diagram:not(.is-hidden-by-search), h2, h3:not(.is-hidden-by-search)");
+          var secMatch = haystack(sec).indexOf(nq) !== -1;
+          if (!visibleChild && !secMatch) {
+            sec.classList.add("is-hidden-by-search");
+            sec.style.display = "none";
+          }
+        }
+
+        meta.textContent = shown === 0
+          ? "0 correspondências"
+          : shown + " trecho(s) com correspondência.";
+        empty.hidden = shown !== 0;
+        document.body.classList.toggle("has-empty", shown === 0);
+      }
+
+      input.addEventListener("input", apply);
+      input.addEventListener("search", apply);
+
+      window.addEventListener("beforeprint", function () {
+        var all = root.querySelectorAll("details");
+        for (var i = 0; i < all.length; i++) all[i].setAttribute("open", "");
+        var hidden = root.querySelectorAll(".is-hidden-by-search");
+        for (var h = 0; h < hidden.length; h++) hidden[h].style.display = "";
+      });
+    })();
+  </script>
+</body>
+</html>

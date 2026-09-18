@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { Draggable, Droppable } from "@hello-pangea/dnd"
 import { FileText, GripVertical, Pencil, Plus, Trash2 } from "lucide-react"
+import { ConfirmDialog } from "@/app/components/ConfirmDialog"
 import { VideoThumb } from "@/app/components/VideoThumb"
-import { isArticleSource } from "@/lib/course"
+import { hasCustomThumb, isArticleSource } from "@/lib/course"
 import type { ModuleDraft } from "@/app/components/admin/courses/types"
 
 type Props = {
@@ -17,6 +19,10 @@ type Props = {
 }
 
 export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRemoveLesson, onOpenPicker, onEditLesson }: Props) {
+  const [confirmModule, setConfirmModule] = useState(false)
+  const [confirmLessonId, setConfirmLessonId] = useState<number | null>(null)
+  const pendingLesson = module.lessons.find((lesson) => lesson.videoId === confirmLessonId)
+
   return (
     <Draggable draggableId={module.key} index={index}>
       {(dragProvided) => (
@@ -33,7 +39,7 @@ export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRem
               placeholder={`Módulo ${index + 1}`}
             />
             <span className="module-badge">{module.lessons.length} {module.lessons.length === 1 ? "aula" : "aulas"}</span>
-            <button type="button" className="icon-btn is-danger" aria-label="Remover módulo" onClick={onRemoveModule}><Trash2 size={14} /></button>
+            <button type="button" className="icon-btn is-danger" aria-label="Remover módulo" onClick={() => setConfirmModule(true)}><Trash2 size={14} /></button>
           </div>
           <div className="module-card-body">
             <Droppable droppableId={module.key} type="LESSON">
@@ -43,8 +49,8 @@ export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRem
                     <Draggable key={lesson.videoId} draggableId={`lesson-${lesson.videoId}`} index={lessonIndex}>
                       {(lp) => (
                         <li ref={lp.innerRef} {...lp.draggableProps} style={lp.draggableProps.style as React.CSSProperties} className="course-lesson">
-                          <div className={`video-card-thumb course-lesson-thumb${isArticleSource(lesson.source) ? " is-article" : ""}`}>
-                            {isArticleSource(lesson.source) ? (
+                          <div className={`video-card-thumb course-lesson-thumb${isArticleSource(lesson.source) && !hasCustomThumb(lesson.thumbnail) ? " is-article" : ""}`}>
+                            {isArticleSource(lesson.source) && !hasCustomThumb(lesson.thumbnail) ? (
                               <FileText size={22} aria-hidden />
                             ) : (
                               <VideoThumb src={lesson.thumbnail} alt={lesson.title} sizes="160px" />
@@ -64,7 +70,7 @@ export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRem
                               <Pencil size={14} /> Editar
                             </button>
                           )}
-                          <button type="button" className="btn btn-ghost btn-compact" onClick={() => onRemoveLesson(lesson.videoId)}>
+                          <button type="button" className="btn btn-ghost btn-compact" onClick={() => setConfirmLessonId(lesson.videoId)}>
                             Remover
                           </button>
                         </li>
@@ -80,6 +86,30 @@ export function ModuleCard({ module, index, onTitleChange, onRemoveModule, onRem
               <Plus size={14} /> Adicionar aula
             </button>
           </div>
+          <ConfirmDialog
+            open={confirmModule}
+            title="Remover módulo?"
+            descricao="As aulas deste módulo saem da trilha. Os vídeos continuam no acervo."
+            perigo
+            confirmarLabel="Remover módulo"
+            onCancel={() => setConfirmModule(false)}
+            onConfirm={() => {
+              setConfirmModule(false)
+              onRemoveModule()
+            }}
+          />
+          <ConfirmDialog
+            open={confirmLessonId !== null}
+            title="Remover aula?"
+            descricao={pendingLesson ? `"${pendingLesson.title}" sai desta trilha. O vídeo continua no acervo.` : "A aula sai desta trilha. O vídeo continua no acervo."}
+            perigo
+            confirmarLabel="Remover aula"
+            onCancel={() => setConfirmLessonId(null)}
+            onConfirm={() => {
+              if (confirmLessonId !== null) onRemoveLesson(confirmLessonId)
+              setConfirmLessonId(null)
+            }}
+          />
         </section>
       )}
     </Draggable>

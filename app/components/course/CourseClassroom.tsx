@@ -9,7 +9,7 @@ import { VideoThumb } from "@/app/components/VideoThumb"
 import { LessonArticle } from "@/app/components/course/LessonArticle"
 import { LessonVideo } from "@/app/components/course/LessonVideo"
 import { loginHref } from "@/lib/auth-redirect"
-import { isArticleSource, isLessonComplete, mergeLessonSeconds, ARTICLE_COMPLETE_SECONDS } from "@/lib/course"
+import { isArticleSource, isLessonComplete, mergeLessonSeconds, ARTICLE_COMPLETE_SECONDS, hasCustomThumb } from "@/lib/course"
 
 export type ClassroomLesson = {
   id: number
@@ -266,7 +266,13 @@ export function CourseClassroom({
                   <VideoThumb src={current.thumbnail} alt={current.title} sizes="(max-width: 900px) 100vw, 860px" />
                   <p className="classroom-lock-msg">{current.status === "error" ? "Esta aula não pôde ser processada." : "Esta aula ainda está sendo processada."}</p>
                 </div>
-              ) : currentIsArticle ? null : (
+              ) : currentIsArticle ? (
+                hasCustomThumb(current.thumbnail) ? (
+                  <div className="classroom-hero classroom-hero-locked">
+                    <VideoThumb src={current.thumbnail} alt={current.title} sizes="(max-width: 900px) 100vw, 860px" />
+                  </div>
+                ) : null
+              ) : (
                 <LessonVideo
                   id={current.id}
                   title={current.title}

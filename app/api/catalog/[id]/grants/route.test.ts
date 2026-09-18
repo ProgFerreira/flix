@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest, NextResponse } from "next/server"
 
-const requireUserId = vi.fn()
+const requireAdmin = vi.fn()
+const logAdminAction = vi.fn()
 const loadManagedCatalogVideo = vi.fn()
 const listVideoGrants = vi.fn()
 const replaceVideoGrants = vi.fn()
@@ -12,7 +13,10 @@ const prisma = {
 }
 
 vi.mock("@/lib/session", () => ({
-  requireUserId: (...args: unknown[]) => requireUserId(...args),
+  requireAdmin: (...args: unknown[]) => requireAdmin(...args),
+}))
+vi.mock("@/lib/audit", () => ({
+  logAdminAction: (...args: unknown[]) => logAdminAction(...args),
 }))
 vi.mock("@/lib/prisma", () => ({ prisma }))
 vi.mock("@/lib/video-grants", async (importOriginal) => {
@@ -27,25 +31,24 @@ vi.mock("@/lib/video-grants", async (importOriginal) => {
 
 describe("catalog grants API", () => {
   beforeEach(() => {
-    requireUserId.mockReset()
+    requireAdmin.mockReset()
+    logAdminAction.mockReset()
     loadManagedCatalogVideo.mockReset()
     listVideoGrants.mockReset()
     replaceVideoGrants.mockReset()
     prisma.videoAccessGrant.deleteMany.mockReset()
   })
 
-  it("GET returns 403 when the requester is not owner or admin", async () => {
-    requireUserId.mockResolvedValue({ userId: 2 })
-    loadManagedCatalogVideo.mockResolvedValue({
-      error: NextResponse.json({ error: "Não autorizado" }, { status: 403 }),
-    })
+  it("GET returns 403 when the requester is not admin", async () => {
+    requireAdmin.mockResolvedValue(NextResponse.json({ error: "Acesso negado" }, { status: 403 }))
     const { GET } = await import("@/app/api/catalog/[id]/grants/route")
     const res = await GET(new NextRequest("http://localhost/api/catalog/9/grants"), { params: Promise.resolve({ id: "9" }) })
     expect(res.status).toBe(403)
+    expect(loadManagedCatalogVideo).not.toHaveBeenCalled()
   })
 
-  it("PUT replaces the extra viewers", async () => {
-    requireUserId.mockResolvedValue({ userId: 1 })
+  it("PUT replaces the extra viewers and audits", async () => {
+    requireAdmin.mockResolvedValue({ userId: 1 })
     loadManagedCatalogVideo.mockResolvedValue({ video: { id: 9, userId: 1 } })
     listVideoGrants.mockResolvedValue([{ id: 4, name: "Ana", email: "ana@x.com", plan: "free" }])
     const { PUT } = await import("@/app/api/catalog/[id]/grants/route")
@@ -65,5 +68,22 @@ describe("catalog grants API", () => {
       ownerId: 1,
     })
     expect(await res.json()).toEqual([{ id: 4, name: "Ana", email: "ana@x.com", plan: "free" }])
+    expect(logAdminAction).toHaveBeenCalledWith(expect.objectContaining({
+      adminId: 1,
+      action: "video.update",
+      targetType: "video",
+      targetId: 9,
+    }))
+  })
+
+  it("DELETE returns 403 when the requester is not admin", async () => {
+    requireAdmin.mockResolvedValue(NextResponse.json({ error: "Acesso negado" }, { status: 403 }))
+    const { DELETE } = await import("@/app/api/catalog/[id]/grants/route")
+    const res = await DELETE(
+      new NextRequest("http://localhost/api/catalog/9/grants?userId=4", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "9" }) },
+    )
+    expect(res.status).toBe(403)
+    expect(prisma.videoAccessGrant.deleteMany).not.toHaveBeenCalled()
   })
 })

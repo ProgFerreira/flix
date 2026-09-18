@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { requireUserId } from "@/lib/session"
+import { requireAdmin } from "@/lib/session"
 import { parsePositiveInt } from "@/lib/admin-users"
 import {
   GrantLimitError,
@@ -10,13 +10,14 @@ import {
   replaceVideoGrants,
   viewerIdsSchema,
 } from "@/lib/video-grants"
+import { logAdminAction } from "@/lib/audit"
 
 const putSchema = z.object({
   viewerIds: viewerIdsSchema,
 })
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireUserId()
+  const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const videoId = parsePositiveInt((await params).id)
   if (videoId == null) {
@@ -31,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireUserId()
+  const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const videoId = parsePositiveInt((await params).id)
   if (videoId == null) {
@@ -67,12 +68,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     throw err
   }
 
+  await logAdminAction({
+    adminId: auth.userId,
+    action: "video.update",
+    targetType: "video",
+    targetId: videoId,
+  })
   const viewers = await listVideoGrants(videoId)
   return NextResponse.json(viewers)
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireUserId()
+  const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const videoId = parsePositiveInt((await params).id)
   if (videoId == null) {
@@ -88,5 +95,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   await prisma.videoAccessGrant.deleteMany({ where: { videoId, userId: targetId } })
+  await logAdminAction({
+    adminId: auth.userId,
+    action: "video.update",
+    targetType: "video",
+    targetId: videoId,
+  })
   return NextResponse.json({ ok: true })
 }

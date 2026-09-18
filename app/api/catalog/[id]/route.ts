@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { requireUserId } from "@/lib/session"
+import { requireAdmin } from "@/lib/session"
 import { removeVideoFiles } from "@/lib/video-storage"
 import { ownedCategoryIds } from "@/lib/categories"
 import { GrantLimitError, loadManagedCatalogVideo, replaceVideoGrants, viewerIdsSchema } from "@/lib/video-grants"
 import { serializeVideo } from "@/lib/serialize-video"
+import { logAdminAction } from "@/lib/audit"
 
 const patchSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
@@ -18,7 +19,7 @@ const patchSchema = z.object({
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireUserId()
+  const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
   const { id } = await params
@@ -76,6 +77,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       })
     })
 
+    await logAdminAction({
+      adminId: userId,
+      action: "video.update",
+      targetType: "video",
+      targetId: videoId,
+    })
     return NextResponse.json(serializeVideo(video))
   } catch (err) {
     if (err instanceof GrantLimitError) {
@@ -86,7 +93,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireUserId()
+  const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
   const { id } = await params
@@ -102,5 +109,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (loaded.video.source === "upload") {
     await removeVideoFiles(loaded.video)
   }
+  await logAdminAction({
+    adminId: userId,
+    action: "video.delete",
+    targetType: "video",
+    targetId: videoId,
+  })
   return NextResponse.json({ ok: true })
 }

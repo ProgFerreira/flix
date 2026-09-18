@@ -17,7 +17,7 @@ import { LibraryToolbar } from "@/app/components/library/LibraryToolbar"
 import { LibraryGrid } from "@/app/components/library/LibraryGrid"
 import { LibraryModals } from "@/app/components/library/LibraryModals"
 import { videoSchema, editSchema, categorySchema, playlistSchema, type VideoForm, type EditForm, type CategoryForm, type PlaylistForm } from "@/app/components/library/schemas"
-import { DropResult } from "@hello-pangea/dnd"
+import type { DropResult } from "@hello-pangea/dnd"
 
 export default function Home() {
   const { status } = useSession()

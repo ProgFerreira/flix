@@ -61,4 +61,26 @@ describe("GET /api/videos/[id]/thumbnail", () => {
     const res = await GET(new NextRequest("http://localhost/api/videos/3/thumbnail"), { params: Promise.resolve({ id: "3" }) })
     expect(res.status).toBe(200)
   })
+
+  it("lets a visitor see the thumb of a published article lesson", async () => {
+    optionalUserId.mockResolvedValue(null)
+    prisma.video.findUnique.mockResolvedValue({
+      userId: 1, source: "article", published: true, thumbPath: "aula.png",
+    })
+    const { GET } = await import("@/app/api/videos/[id]/thumbnail/route")
+    const res = await GET(new NextRequest("http://localhost/api/videos/44/thumbnail"), { params: Promise.resolve({ id: "44" }) })
+    expect(res.status).toBe(200)
+    expect(res.headers.get("Content-Type")).toBe("image/png")
+  })
+
+  it("hides an unpublished article thumb from strangers", async () => {
+    optionalUserId.mockResolvedValue(5)
+    prisma.video.findUnique.mockResolvedValue({
+      userId: 1, source: "article", published: false, thumbPath: "aula.webp",
+    })
+    prisma.user.findUnique.mockResolvedValue({ role: "user" })
+    const { GET } = await import("@/app/api/videos/[id]/thumbnail/route")
+    const res = await GET(new NextRequest("http://localhost/api/videos/44/thumbnail"), { params: Promise.resolve({ id: "44" }) })
+    expect(res.status).toBe(404)
+  })
 })

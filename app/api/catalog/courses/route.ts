@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { optionalUserId, syncSubscriptionStatus, catalogVisiblePlanFilter } from "@/lib/session"
+import { catalogVisiblePlanFilter } from "@/lib/session"
+import { optionalCatalogRequester } from "@/lib/catalog-requester"
 import { parsePageParams, paginated } from "@/lib/pagination"
 import { courseCurriculumInclude, flattenCourseLessons } from "@/lib/course-query"
 import { publicCourseSummary } from "@/lib/course-public"
 import type { LessonWatchState } from "@/lib/course"
 
 export async function GET(req: NextRequest) {
-  const userId = await optionalUserId()
   const { searchParams } = new URL(req.url)
   const plan = searchParams.get("plan")
   const paging = parsePageParams(searchParams)
-
-  let requester: { plan: string; role: string } | null = null
-  if (userId) {
-    await syncSubscriptionStatus(userId)
-    requester = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, role: true } })
-  }
+  const requesterRow = await optionalCatalogRequester()
+  const userId = requesterRow?.userId ?? null
+  const requester = requesterRow
+    ? { plan: requesterRow.plan, role: requesterRow.role }
+    : null
 
   const planScope = plan && ["free", "premium", "pro"].includes(plan)
     ? { requiredPlan: plan as "free" | "premium" | "pro" }

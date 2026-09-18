@@ -2,10 +2,15 @@
 
 import { Play } from "lucide-react"
 import type { HTMLAttributes } from "react"
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
+import dynamic from "next/dynamic"
 import { Pager } from "@/app/components/Pager"
 import type { Video } from "@/app/components/library/types"
 import { VideoCard } from "@/app/components/library/LibraryBits"
+import type { DropResult } from "@hello-pangea/dnd"
+
+const LibraryGridSortable = dynamic(
+  () => import("@/app/components/library/LibraryGridSortable").then((mod) => mod.LibraryGridSortable),
+)
 
 type Props = {
   loading: boolean
@@ -86,24 +91,12 @@ export function LibraryGrid(p: Props) {
   return (
     <>
       {p.order === "manual" && p.activeCollection === null ? (
-        <DragDropContext onDragEnd={p.onDragEnd}>
-          <Droppable droppableId="videos" direction="horizontal">
-            {(provided) => (
-              <div ref={provided.innerRef} {...provided.droppableProps} className={`catalog-grid${p.gridFading ? " fading" : ""}`}>
-                {p.filtered.map((video, i) => (
-                  <Draggable key={video.id} draggableId={String(video.id)} index={i}>
-                    {(dp) => (
-                      <div ref={dp.innerRef} {...dp.draggableProps} style={dp.draggableProps.style as React.CSSProperties}>
-                        {card(video, i, dp.dragHandleProps)}
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+        <LibraryGridSortable
+          videos={p.filtered}
+          gridFading={p.gridFading}
+          onDragEnd={p.onDragEnd}
+          renderCard={card}
+        />
       ) : (
         <div className={`catalog-grid${p.gridFading ? " fading" : ""}`}>
           {p.filtered.map((video, i) => card(video, i))}

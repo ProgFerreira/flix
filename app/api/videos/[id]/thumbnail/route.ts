@@ -3,8 +3,13 @@ import fs from "fs"
 import { prisma } from "@/lib/prisma"
 import { optionalUserId } from "@/lib/session"
 import { resolveThumbPath, fileCacheTag } from "@/lib/video-storage"
+import { thumbContentType } from "@/lib/lesson-image"
 
 export const runtime = "nodejs"
+
+function canServeThumb(source: string) {
+  return source === "upload" || source === "article"
+}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const userId = await optionalUserId()
@@ -18,11 +23,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { id: videoId },
     select: { userId: true, source: true, published: true, thumbPath: true },
   })
-  if (!video || video.source !== "upload" || !video.thumbPath) {
+  if (!video || !canServeThumb(video.source) || !video.thumbPath) {
     return NextResponse.json({ error: "Miniatura não encontrada" }, { status: 404 })
   }
 
   const isOwner = userId !== null && video.userId === userId
+  // Publicado = preview da vitrine (card do catálogo). O MP4 continua paywalled no stream.
   let allowed = isOwner || video.published
   if (!allowed && userId !== null) {
     const requester = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
@@ -59,10 +65,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   return new NextResponse(new Uint8Array(buf), {
     status: 200,
     headers: {
-      "Content-Type": "image/jpeg",
+      "Content-Type": thumbContentType(video.thumbPath),
       "Content-Length": String(buf.length),
       ETag: etag,
       "Cache-Control": cacheControl,
     },
   })
 }
+

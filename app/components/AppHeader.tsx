@@ -1,13 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { signOutToLogin } from "@/lib/sign-out"
-import { BarChart2, History, LogOut, CreditCard, Layers, Clapperboard, Film, FolderOpen, UserRound, Menu, X, Users, DollarSign, LayoutDashboard, ClipboardList, ScrollText, BookOpen } from "lucide-react"
+import { BarChart2, History, LogOut, CreditCard, Clapperboard, FolderOpen, UserRound, Menu, X, LayoutDashboard } from "lucide-react"
 import { loginHref } from "@/lib/auth-redirect"
 import { Logo } from "@/app/components/Logo"
+
+const AdminSubnav = dynamic(
+  () => import("@/app/components/AdminSubnav").then((mod) => mod.AdminSubnav),
+)
 
 export function VisitorHeader() {
   return (
@@ -35,17 +40,8 @@ export function AppHeader() {
   const [open, setOpen] = useState(false)
   const role = session?.user?.role
 
-  const navLink = (href: string, label: string, icon: React.ReactNode) => {
+  const navLink = (href: string, label: string, icon: ReactNode) => {
     const active = href === "/admin" ? path.startsWith("/admin") : path === href
-    return (
-      <Link href={href} aria-current={active ? "page" : undefined} className={`app-nav-link${active ? " is-active" : ""}`} onClick={() => setOpen(false)}>
-        {icon} {label}
-      </Link>
-    )
-  }
-
-  const adminLink = (href: string, label: string, icon: React.ReactNode) => {
-    const active = href === "/admin" ? path === "/admin" : path === href || path.startsWith(`${href}/`)
     return (
       <Link href={href} aria-current={active ? "page" : undefined} className={`app-nav-link${active ? " is-active" : ""}`} onClick={() => setOpen(false)}>
         {icon} {label}
@@ -78,42 +74,31 @@ export function AppHeader() {
         <nav className="app-nav" id="app-nav" aria-label="Principal">
           {navLink("/", "Minha biblioteca", <FolderOpen size={14} />)}
           {navLink("/catalogo", "Explorar catálogo", <Clapperboard size={14} />)}
-          {!path.startsWith("/admin") && navLink("/historico", "Histórico", <History size={14} />)}
-          {!path.startsWith("/admin") && navLink("/estatisticas", "Estatísticas", <BarChart2 size={14} />)}
+          {!path.startsWith("/admin") ? navLink("/historico", "Histórico", <History size={14} />) : null}
+          {!path.startsWith("/admin") ? navLink("/estatisticas", "Estatísticas", <BarChart2 size={14} />) : null}
           {navLink("/plano", "Meu Plano", <CreditCard size={14} />)}
-          {role === "admin" && !path.startsWith("/admin") && navLink("/admin", "Admin", <LayoutDashboard size={14} />)}
+          {role === "admin" && !path.startsWith("/admin") ? navLink("/admin", "Admin", <LayoutDashboard size={14} />) : null}
         </nav>
 
         <div className="app-header-actions">
-          {session?.user?.name && (
+          {session?.user?.name ? (
             <span className="app-header-hello">
               Olá, <strong>{session.user.name.split(" ")[0]}</strong>
             </span>
-          )}
-          {session && navLink("/conta", "Conta", <UserRound size={14} />)}
-          {session && (
+          ) : null}
+          {session ? navLink("/conta", "Conta", <UserRound size={14} />) : null}
+          {session ? (
             <button type="button" className="btn btn-ghost" onClick={() => void signOutToLogin()}>
               <LogOut size={13} /> Sair
             </button>
-          )}
+          ) : null}
         </div>
       </div>
-      {role === "admin" && path.startsWith("/admin") && (
-        <nav className="admin-subnav" aria-label="Administração">
-          <div className="admin-subnav-inner">
-            {adminLink("/admin", "Painel", <LayoutDashboard size={14} />)}
-            {adminLink("/admin/clientes", "Clientes", <Users size={14} />)}
-            {adminLink("/admin/pagamentos", "Pagamentos", <DollarSign size={14} />)}
-            {adminLink("/admin/assinaturas", "Assinaturas", <Layers size={14} />)}
-            {adminLink("/admin/solicitacoes", "Solicitações", <ClipboardList size={14} />)}
-            {adminLink("/admin/auditoria", "Auditoria", <ScrollText size={14} />)}
-            {adminLink("/admin/videos", "Vídeos", <Film size={14} />)}
-            {adminLink("/admin/cursos", "Cursos", <BookOpen size={14} />)}
-          </div>
-        </nav>
-      )}
+      {role === "admin" && path.startsWith("/admin") ? (
+        <AdminSubnav path={path} onNavigate={() => setOpen(false)} />
+      ) : null}
     </header>
-      {session && session.user.emailVerified === false && (
+      {session && session.user.emailVerified === false ? (
         <div className="banner verify-banner" role="status">
           <p>
             Confirme seu e-mail pra manter a conta segura.
@@ -121,7 +106,7 @@ export function AppHeader() {
             <Link href="/conta" className="link">Reenviar confirmação</Link>
           </p>
         </div>
-      )}
+      ) : null}
     </>
   )
 }

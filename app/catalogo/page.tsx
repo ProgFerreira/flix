@@ -11,14 +11,20 @@ import { loginHref } from "@/lib/auth-redirect"
 import { ConfirmDialog } from "@/app/components/ConfirmDialog"
 import { itemsFromPaginated, pageMeta } from "@/lib/pagination"
 import { usePlayer } from "@/app/contexts/PlayerContext"
-import { PublishModal } from "@/app/catalogo/PublishModal"
-import { GrantsModal } from "@/app/catalogo/GrantsModal"
+import dynamic from "next/dynamic"
 import { CreatorShowcase } from "@/app/catalogo/CreatorShowcase"
 import { ContinueWatching, type ContinueItem } from "@/app/catalogo/ContinueWatching"
 import { CourseRail, type CatalogCourse } from "@/app/catalogo/CourseRail"
 import { continueProgressPercent } from "@/lib/watch-continue"
 import { Lock, Play, Film, Crown, Search, X, Star, Plus, Link2, Trash2, Users, Loader2 } from "lucide-react"
 import { VideoThumb } from "@/app/components/VideoThumb"
+
+const PublishModal = dynamic(
+  () => import("@/app/catalogo/PublishModal").then((mod) => mod.PublishModal),
+)
+const GrantsModal = dynamic(
+  () => import("@/app/catalogo/GrantsModal").then((mod) => mod.GrantsModal),
+)
 
 type Category = { id: number; name: string; color: string }
 type CatalogVideo = {
@@ -389,7 +395,7 @@ export default function CatalogoPage() {
                     {v.title.length > 58 ? v.title.slice(0, 58) + "…" : v.title}
                   </h3>
                   <div className="video-card-meta">
-                    {v.mine && (
+                    {isAdmin && (
                       <select
                         className="plan-select"
                         data-plan={v.requiredPlan}
@@ -406,7 +412,7 @@ export default function CatalogoPage() {
                       <span key={vc.category.id} className="cat-tag" style={{ ["--chip-color" as string]: vc.category.color }}>{vc.category.name}</span>
                     ))}
                   </div>
-                  {v.mine && v.processError && (
+                  {isAdmin && v.processError && (
                     <p className="field-error">{v.processError}</p>
                   )}
                   {v.locked && (
@@ -414,7 +420,7 @@ export default function CatalogoPage() {
                       <Crown size={12} /> {isLoggedIn ? `Assinar ${PLAN_LABEL[v.requiredPlan]}` : "Entrar pra assistir"}
                     </Link>
                   )}
-                  {v.mine && (
+                  {isAdmin && (
                     <div className="admin-video-actions">
                       <button type="button" onClick={() => togglePublished(v)} className="btn btn-ghost" disabled={processing || busyId !== null}>
                         {v.published ? "Despublicar" : "Publicar"}

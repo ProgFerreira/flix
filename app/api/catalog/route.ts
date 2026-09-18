@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { optionalUserId, requireAdmin, syncSubscriptionStatus, canAccessCatalogVideo, catalogVisiblePlanFilter } from "@/lib/session"
+import { requireAdmin, canAccessCatalogVideo, catalogVisiblePlanFilter } from "@/lib/session"
+import { optionalCatalogRequester } from "@/lib/catalog-requester"
 import { parsePageParams, paginated } from "@/lib/pagination"
 import { parseYouTubeVideoId } from "@/lib/youtube-url"
 import { getYouTubeThumbnail } from "@/lib/utils"
@@ -28,26 +29,28 @@ const publishLinkSchema = z.object({
 })
 
 export async function GET(req: NextRequest) {
-  const userId = await optionalUserId()
   const { searchParams } = new URL(req.url)
   const q = (searchParams.get("q") ?? "").trim()
   const plan = searchParams.get("plan")
   const favorited = searchParams.get("favorited") === "1"
   const mine = searchParams.get("mine") === "1"
   const paging = parsePageParams(searchParams)
+  const requestedId = searchParams.get("video")
+  const takenPromise = !mine && !requestedId
+    ? prisma.courseLesson.findMany({ select: { videoId: true } })
+    : Promise.resolve([] as { videoId: number }[])
 
-  let requester: { plan: string; role: string } | null = null
-  if (userId) {
-    await syncSubscriptionStatus(userId)
-    requester = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, role: true } })
-  }
+  const requesterRow = await optionalCatalogRequester()
+  const userId = requesterRow?.userId ?? null
+  const requester = requesterRow
+    ? { plan: requesterRow.plan, role: requesterRow.role }
+    : null
 
   if ((favorited || mine) && !userId) {
     return NextResponse.json(paginated([], 0, paging.page, paging.pageSize))
   }
 
   const filters: Record<string, unknown>[] = []
-  const requestedId = searchParams.get("video")
   if (requestedId) {
     const id = Number(requestedId)
     if (!Number.isSafeInteger(id) || id < 1) return NextResponse.json(paginated([], 0, paging.page, paging.pageSize))
@@ -64,9 +67,7 @@ export async function GET(req: NextRequest) {
     filters.push({ published: true })
     filters.push({ source: { in: ["youtube", "upload"] } })
     if (!requestedId) {
-      const taken = await prisma.courseLesson.findMany({
-        select: { videoId: true },
-      })
+      const taken = await takenPromise
       if (taken.length > 0) {
         filters.push({ id: { notIn: taken.map((row) => row.videoId) } })
       }

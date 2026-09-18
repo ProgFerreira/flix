@@ -127,8 +127,8 @@
     <header class="hero">
       <h1>Flix — auditoria</h1>
       <p class="meta">
-        <span>Auditoria: <time id="audited-at">15 set 2026</time></span>
-        <span>Progresso atualizado: <time id="progress-updated-at">15 set 2026</time></span>
+        <span>Auditoria: <time id="audited-at">18 set 2026</time></span>
+        <span>Progresso atualizado: <time id="progress-updated-at">18 set 2026</time></span>
       </p>
     </header>
 
@@ -153,88 +153,101 @@
 
     <section>
       <h2>1. Resumo executivo</h2>
-      <p>O Flix (GEFlix) é dois produtos no mesmo app Next.js. A biblioteca em <code>/</code> organiza YouTube pessoal (categorias, coleções, histórico). O catálogo em <code>/catalogo</code> é a vitrine paga: arquivo MP4/WebM/MOV no disco, player autenticado, paywall por plano. Visitante assiste o free sem conta; Premium (R$ 10/mês) e Pro (R$ 17,90/mês) desbloqueiam o resto depois que o admin confirma o PIX. Não é marketplace nem curso com módulos — é clube de um criador.</p>
-      <p>Banco local conferido em 15 set 2026: 8 usuários (2 admin, 6 user), 21 vídeos, 3 publicados, 3 assinaturas, 3 pagamentos. A exclusão de conta já é anonimização LGPD (<code>deleteUserAccount</code>): preserva <code>PlanPayment</code>. A FK <code>PlanPayment_userId_fkey</code> no MySQL live é RESTRICT. Não há motivo para reescrever o produto.</p>
-      <p>O achado que muda a prioridade: o README e o POST de criação/upload do catálogo dizem que só admin publica, mas o dono de qualquer vídeo ainda consegue publicar. <code>PATCH</code> e <code>DELETE</code> em <code>/api/catalog/[id]</code> usam <code>requireUserId</code> + dono, não <code>requireAdmin</code>. A UI esconde o botão “Publicar” do header para não-admin, mas mostra Publicar/Despublicar em todo card <code>mine</code>. No banco live o vídeo 22 (upload, publicado, plano free) pertence ao usuário 3 com role <code>user</code>. A vitrine deixa de ser só do criador.</p>
-      <p>Segundo achado comprovado no information_schema: <code>ConsentimentoLgpd</code> está em MyISAM e não tem FK no banco live — a migration declara InnoDB+FK, o MySQL live não aplicou. RateLimitBucket e PlanPayment estão em InnoDB. Sem achado crítico (nada bloqueia nem corrompe pagamento).</p>
+      <p>O Flix é dois produtos no mesmo app Next.js 16: a biblioteca em <code>/</code> organiza YouTube pessoal (categorias, coleções, histórico) e o catálogo em <code>/catalogo</code> é a vitrine paga do criador (arquivo no disco, player autenticado, paywall por plano). Desde a auditoria de 15 set 2026 o produto ganhou trilha didática: <code>Course</code> / módulos / aulas, admin em <code>/admin/cursos</code> e sala em <code>/catalogo/cursos/[slug]</code>. PIX continua manual. Não há motivo para reescrever.</p>
+      <p>O achado que muda a prioridade continua sendo o mesmo da auditoria anterior, agora acompanhado de vazamento de infra: o README e o POST de criação/upload dizem que só admin publica, mas PATCH/DELETE/grants de <code>/api/catalog/[id]</code> aceitam o dono do vídeo. A UI esconde o botão “Publicar” do header e mostra Publicar/Despublicar em todo card <code>mine</code>. Em paralelo, <code>.gitignore</code> força o versionamento de <code>.env.production</code> e <code>GET /api/health</code> devolve host do banco, probes e migrate sem autenticação.</p>
+      <p>Cursos, FFmpeg, cron de cobrança, LGPD (export + anonimizar), CSRF e rate limit MySQL já existem. Prisma 5 e NextAuth v4 estão pinados de propósito. O plano aprovado em 18 set 2026 fecha segurança e vitrine, depois confirma InnoDB em ConsentimentoLgpd e UX pontual — sem Stripe, HLS nem shell WMS.</p>
     </section>
 
     <section>
       <h2>2. Stack identificada</h2>
-      <p class="evidence">Fonte: package.json, package-lock.json, README.md, prisma/schema.prisma, lib/auth.ts. Versões do lockfile.</p>
+      <p class="evidence">Fonte: package.json, README.md, prisma/schema.prisma, lib/auth.ts. Versões do manifesto.</p>
       <table>
         <thead>
           <tr><th>Camada</th><th>Tecnologia</th><th>Versão</th><th>Observação</th></tr>
         </thead>
         <tbody>
-          <tr><td>Framework</td><td>Next.js App Router</td><td>16.2.9</td><td>Porta 3003 em 0.0.0.0; app/ na raiz, sem src/</td></tr>
-          <tr><td>UI</td><td>React</td><td>19.2.4</td><td>Header horizontal + app/css/app.css</td></tr>
+          <tr><td>Framework</td><td>Next.js App Router</td><td>16.2.9</td><td>Porta 3003 em 0.0.0.0; app/ na raiz; proxy.ts no lugar de middleware.ts</td></tr>
+          <tr><td>UI</td><td>React</td><td>19.2.4</td><td>Header horizontal + app/css/app.css — não é shell WMS</td></tr>
           <tr><td>Linguagem</td><td>TypeScript</td><td>^5.9.3</td><td>strict</td></tr>
-          <tr><td>ORM / banco</td><td>Prisma + MySQL</td><td>5.22.0</td><td>Pin em 5 de propósito; FKs InnoDB (exceto ConsentimentoLgpd live)</td></tr>
-          <tr><td>Auth</td><td>NextAuth Credentials JWT</td><td>4.24.14</td><td>v4 de propósito; role/status revalidados no banco</td></tr>
-          <tr><td>Validação</td><td>Zod + RHF</td><td>Zod 4.4.3</td><td>Mesmo schema em validators/ para senha</td></tr>
+          <tr><td>ORM / banco</td><td>Prisma + MySQL</td><td>5.22.0</td><td>Pin em 5 de propósito; Prisma 7 exigiria adapter</td></tr>
+          <tr><td>Auth</td><td>NextAuth Credentials JWT</td><td>4.24.14</td><td>v4 de propósito; role/status revalidados no banco nas APIs</td></tr>
+          <tr><td>Validação</td><td>Zod + RHF</td><td>Zod 4.4.3</td><td>validators/ para auth, senha, curso; admin clientes ainda useState</td></tr>
           <tr><td>E-mail</td><td>Resend</td><td>^6.21.0</td><td>Reset, verificação, lembretes de cobrança</td></tr>
-          <tr><td>Upload / vídeo</td><td>disco local + FFmpeg</td><td>—</td><td>storage/videos; stream Range em /api/videos/[id]/stream</td></tr>
+          <tr><td>Upload / vídeo</td><td>disco local + FFmpeg</td><td>—</td><td>MP4 progressivo com Range; sem HLS</td></tr>
           <tr><td>Pagamento</td><td>PIX manual</td><td>—</td><td>Enum card/boleto existe; fluxo real é PIX + aprovação admin</td></tr>
-          <tr><td>Testes / CI</td><td>Vitest + Playwright + GHA</td><td>Vitest 4.1.11</td><td>lint, typecheck, test, build (Node 22)</td></tr>
+          <tr><td>Testes / CI</td><td>Vitest + Playwright + GHA</td><td>Vitest 4.1.11</td><td>lint, typecheck, test, build</td></tr>
         </tbody>
       </table>
     </section>
 
     <section>
       <h2>3. Funcionalidades já implementadas</h2>
-      <h3>Clube do criador (o que vende)</h3>
-      <p>Upload em <code>/admin/videos</code> e POST admin em <code>/api/catalog</code> + <code>/api/catalog/upload</code> (MP4/WebM/MOV até 3 GB, magic-bytes). Plano mínimo por vídeo. Stream privado com Range, ETag e <code>private, no-cache</code>. Visitante free; assinante vê conforme o plano. Grants extras (presente / cliente). Favorito e progresso por usuário.</p>
+      <h3>Clube do criador</h3>
+      <p>Upload em <code>/admin/videos</code> e POST admin em <code>/api/catalog</code> + <code>/api/catalog/upload</code> (MP4/WebM/MOV até 3 GB, magic-bytes). Plano mínimo por vídeo. Stream privado com Range, ETag e <code>private, no-cache</code>. Visitante free; assinante vê conforme o plano. Grants extras. Favorito e progresso por usuário.</p>
+      <h3>Cursos</h3>
+      <p><code>Course</code> agrupa módulos e aulas (1:1 com <code>Video</code>, inclusive <code>source=article</code>). Admin monta currículo em <code>/admin/cursos/[id]</code> com drag-and-drop. Assinante entra em <code>/catalogo/cursos/[slug]</code> (landing + sala). Apagar o curso não apaga o arquivo — só a trilha.</p>
       <h3>Cobrança e operação</h3>
-      <p><code>/plano</code> pede upgrade, mostra PIX, envia comprovante. Admin aprova em <code>/admin/solicitacoes</code>, registra pagamento, renova / cancela assinatura. Cron diário: vence em 7 dias, atraso, expiração e rebaixa o plano. Auditoria, CSV, health, LGPD (export JSON + anonimizar). CSRF de Origin em <code>/api/*</code>. Rate limit MySQL em login/cadastro/recuperação.</p>
-      <h3>Biblioteca pessoal (não é a loja)</h3>
-      <p><code>/</code> é organizador de YouTube: categorias, notas, coleções com link <code>/c/[token]</code>, histórico, estatísticas, cota 20 / 100 / ilimitado. POST <code>/api/videos</code> cria só <code>source=youtube</code>, <code>published</code> default false. Arquivo autoral entra pelo catálogo/admin, não por essa tela.</p>
-      <h3>Jornada para vender uma aula hoje</h3>
-      <table>
-        <thead>
-          <tr><th>Passo</th><th>Quem</th><th>Onde</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Enviar arquivo ou link</td><td>Admin</td><td>/admin/videos ou /catalogo (botão Publicar)</td></tr>
-          <tr><td>Assistir free</td><td>Visitante</td><td>/catalogo + stream se requiredPlan=free</td></tr>
-          <tr><td>Pedir Premium/Pro</td><td>Assinante</td><td>/plano + comprovante PIX</td></tr>
-          <tr><td>Liberar acesso</td><td>Admin</td><td>/admin/solicitacoes ou /admin/assinaturas</td></tr>
-        </tbody>
-      </table>
+      <p><code>/plano</code> pede upgrade, mostra PIX, envia comprovante. Admin aprova em <code>/admin/solicitacoes</code>, registra pagamento, renova / cancela. Cron diário de vencimento. Auditoria, CSV, health, LGPD (export JSON + anonimizar). CSRF de Origin em <code>/api/*</code>. Rate limit MySQL em login/cadastro/recuperação.</p>
+      <h3>Biblioteca pessoal</h3>
+      <p><code>/</code> é organizador de YouTube: categorias, notas, coleções com link <code>/c/[token]</code>, histórico, estatísticas, cota por plano. POST <code>/api/videos</code> cria só <code>source=youtube</code>.</p>
     </section>
 
     <section>
       <h2>4. Problemas encontrados</h2>
+      <h3><span class="badge critico">Crítico</span> .env.production versionado</h3>
+      <p><strong>Onde:</strong> <code>.gitignore:37-40</code> (<code>!.env.production</code>).</p>
+      <p><strong>O que é:</strong> a exceção do gitignore manda o arquivo de produção para o repositório. Catálogo <code>git-segredo-em-arquivo-local</code>. O conteúdo não foi aberto nesta auditoria.</p>
+      <p><strong>Impacto:</strong> se o arquivo tiver <code>NEXTAUTH_SECRET</code>, <code>DATABASE_URL</code>, <code>CRON_SECRET</code> ou <code>RESEND_API_KEY</code> reais, qualquer clone lê os segredos.</p>
+      <p><strong>Solução:</strong> remover a exceção, <code>git rm --cached .env.production</code>, rotacionar segredos se já vazaram. Complexidade baixa.</p>
+
       <h3><span class="badge alto">Alto</span> Dono não-admin publica e apaga no catálogo</h3>
-      <p><strong>Onde:</strong> <code>app/api/catalog/[id]/route.ts:20-31</code> (PATCH), <code>:88-99</code> (DELETE); <code>lib/video-grants.ts:99-111</code>; <code>app/catalogo/page.tsx:364-368</code>; grants em <code>app/api/catalog/[id]/grants/route.ts:18-27</code>.</p>
-      <p><strong>O que é:</strong> POST create/upload exige <code>requireAdmin</code> (<code>catalog/route.ts:131-132</code>, <code>upload/route.ts:29-30</code>). PATCH/DELETE/grants aceitam qualquer dono. GET público lista <code>published: true</code> sem filtrar role do dono. Um <code>user</code> autenticado pode <code>PATCH /api/catalog/{id}</code> com <code>{ published: true }</code> num vídeo da biblioteca (mesmo modelo <code>Video</code>) e aparecer na vitrine. A UI ainda mostra Publicar em card <code>mine</code>.</p>
-      <p><strong>Impacto:</strong> a loja deixa de ser só do criador; o PIX continua na chave do dono. No MySQL live o vídeo 22 (upload publicado, userId 3, role user) já está na vitrine.</p>
-      <p><strong>Solução:</strong> <code>requireAdmin()</code> em PATCH/DELETE/grants do catálogo (ou pelo menos no campo <code>published</code>); esconder ações de card para não-admin; decidir o que fazer com o vídeo 22. Testes em <code>route.test.ts</code> dessas rotas. Complexidade baixa.</p>
-      <h3><span class="badge medio">Médio</span> ConsentimentoLgpd MyISAM sem FK no banco live</h3>
-      <p><strong>Onde:</strong> information_schema (ENGINE=MyISAM; tabela ausente de REFERENTIAL_CONSTRAINTS). Schema Prisma declara FK Cascade (<code>schema.prisma:266</code>); migration <code>20260916090000_lgpd_soft_delete</code> cria a FK. Única tabela MyISAM no schema atual.</p>
-      <p><strong>Impacto:</strong> o app anonimiza em vez de apagar o User, então hoje não explode. Hard-delete ou restore de backup pode deixar consentimento órfão. RateLimitBucket já foi corrigido pelo mesmo padrão (<code>20260917100000_rate_limit_innodb</code>).</p>
-      <p><strong>Solução:</strong> migration <code>ALTER TABLE ConsentimentoLgpd ENGINE=InnoDB</code> + recriar <code>ConsentimentoLgpd_userId_fkey</code>. Complexidade baixa. Aceite: query no information_schema.</p>
+      <p><strong>Onde:</strong> <code>app/api/catalog/[id]/route.ts</code> PATCH/DELETE; <code>lib/video-grants.ts</code> <code>loadManagedCatalogVideo</code>; <code>app/catalogo/page.tsx</code> ações em <code>v.mine</code>; grants em <code>app/api/catalog/[id]/grants/route.ts</code>.</p>
+      <p><strong>O que é:</strong> POST create/upload exige <code>requireAdmin</code>. PATCH/DELETE/grants aceitam qualquer dono. README: “Assinante não publica no catálogo.” Mesmo achado de 15 set, ainda aberto. Mutações também não chamam <code>logAdminAction</code>.</p>
+      <p><strong>Impacto:</strong> a loja deixa de ser só do criador.</p>
+      <p><strong>Solução:</strong> <code>requireAdmin()</code> + auditoria + esconder ações de card para não-admin. Complexidade baixa.</p>
+
+      <h3><span class="badge alto">Alto</span> /api/health público vaza infra</h3>
+      <p><strong>Onde:</strong> <code>app/api/health/route.ts:6-40</code>.</p>
+      <p><strong>O que é:</strong> sem auth; devolve <code>dbHost</code>, probes e resultado de migrate.</p>
+      <p><strong>Impacto:</strong> mapeamento da topologia MySQL e do estado das migrations para qualquer visitante.</p>
+      <p><strong>Solução:</strong> responder só <code>status</code> + <code>database</code> (+ timestamp). Complexidade baixa.</p>
+
+      <h3><span class="badge alto">Alto</span> Busca de usuários devolve e-mail e plano a qualquer logado</h3>
+      <p><strong>Onde:</strong> <code>app/api/users/search/route.ts:9-40</code>. Cliente: <code>UserPicker</code> (grants do catálogo / admin). Biblioteca compartilha por e-mail digitado, não por essa rota.</p>
+      <p><strong>Impacto:</strong> enumeração de contas e planos.</p>
+      <p><strong>Solução:</strong> <code>requireAdmin()</code>. Complexidade baixa.</p>
+
+      <h3><span class="badge medio">Médio</span> ConsentimentoLgpd pode estar MyISAM sem FK no live</h3>
+      <p><strong>Onde:</strong> comprovado em 15 set no information_schema; migration <code>20260916090000_lgpd_soft_delete</code> declara InnoDB+FK. Reconsultar o banco nesta execução.</p>
+      <p><strong>Impacto:</strong> consentimento órfão se houver hard-delete. O app anonimiza User, então hoje não explode.</p>
+      <p><strong>Solução:</strong> <code>ALTER TABLE ... ENGINE=InnoDB</code> + recriar FK se a query confirmar. Complexidade baixa.</p>
+
+      <h3><span class="badge medio">Médio</span> Signup 500 devolve código Prisma</h3>
+      <p><strong>Onde:</strong> <code>app/api/auth/setup/route.ts:74-79</code>.</p>
+      <p><strong>Impacto:</strong> o cliente vê <code>P2021</code> e similares. Solução: logar no servidor, não no JSON. Complexidade baixa.</p>
+
+      <h3><span class="badge baixo">Baixo</span> CollectionVideo.addedBy sem FK</h3>
+      <p><strong>Onde:</strong> <code>prisma/schema.prisma</code> model CollectionVideo. Impacto: integridade frouxa. Adiar; não bloqueia venda.</p>
+
       <h3><span class="badge baixo">Baixo</span> Miniatura publicada sem paywall</h3>
-      <p><strong>Onde:</strong> <code>app/api/videos/[id]/thumbnail/route.ts:26,44</code> — visitante vê thumb se <code>published</code>; cache <code>public, max-age=86400</code>. O stream do vídeo continua paywalled.</p>
-      <p><strong>Impacto:</strong> frame JPEG de aula paga vaza; não libera o arquivo. Solução: exigir o mesmo <code>canAccessCatalogVideo</code> do stream, ou aceitar como preview de vitrine. Complexidade baixa.</p>
-      <h3><span class="badge baixo">Baixo</span> JWT engole erro de banco</h3>
-      <p><strong>Onde:</strong> <code>lib/auth.ts:119-121</code>. Se o MySQL cair no callback JWT, o token antigo (role/status) permanece. APIs com <code>requireUserId</code> ainda consultam <code>currentDbUser</code>. Impacto só se a UI confiar no JWT sem bater na API. Complexidade baixa.</p>
-      <h3><span class="badge baixo">Baixo</span> Stream por ID permanente</h3>
-      <p><strong>Onde:</strong> <code>/api/videos/[id]/stream</code> — auth por sessão/plano, não URL assinada. README já documenta R2/URL assinada quando o Node saturar. Não é vazamento anônimo. Adiar até volume real.</p>
+      <p><strong>Onde:</strong> <code>app/api/videos/[id]/thumbnail/route.ts</code> — visitante vê thumb se <code>published</code>; cache público. O stream continua paywalled. Decisão de produto: manter como preview da vitrine.</p>
+
+      <h3><span class="badge baixo">Baixo</span> Remover módulo/aula sem ConfirmDialog</h3>
+      <p><strong>Onde:</strong> <code>app/components/admin/courses/ModuleCard.tsx</code>. O curso inteiro já confirma. Catálogo <code>ui-exclusao-sem-confirmacao</code>.</p>
     </section>
 
     <section>
       <h2>5. Proposta de MVP / escopo</h2>
-      <p>Uma conta = um espectador. Papéis: visitante, assinante (user), admin. Sem perfil infantil.</p>
+      <p>Uma conta = um espectador. Papéis: visitante, assinante (user), admin. Sem perfil infantil. A vitrine é só do criador (confirmado no README e no plano de 18 set).</p>
       <table>
         <thead>
           <tr><th>Obrigatório agora</th><th>Fase 2</th><th>Não vale a pena ainda</th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>Alinhar publicação do catálogo com “só o criador” (API + UI). Migration ConsentimentoLgpd InnoDB+FK. Operar FFmpeg, CRON_SECRET e chave PIX real.</td>
-            <td>Decidir destino do vídeo 22. Miniatura com o mesmo gate do stream, se a vitrine não quiser preview. URL assinada só com volume que doa no Node.</td>
-            <td>Course/Lesson/Module (outro produto). Stripe/Mercado Pago (o PIX manual já cobra). Prisma 6 e NextAuth v5 (pin de propósito). CDN pública no MP4 (vaza conteúdo pago). Split de vendedor.</td>
+            <td>Parar de versionar .env.production. Enxugar health. Admin na busca de usuários e no PATCH/DELETE/grants do catálogo. Confirmar InnoDB de ConsentimentoLgpd. ConfirmDialog em módulo/aula.</td>
+            <td>FK em CollectionVideo.addedBy. URL assinada só com volume que doa no Node. Formulários admin em RHF+zod.</td>
+            <td>Stripe/Mercado Pago. Prisma 6 e NextAuth v5. HLS/CDN pública no MP4. RBAC granular (só 2 papéis). Converter o visual para shell WMS. Comentários, quiz, certificado.</td>
           </tr>
         </tbody>
       </table>
@@ -247,30 +260,34 @@
           <tr><th>Entidade</th><th>Estado</th><th>Observação</th></tr>
         </thead>
         <tbody>
-          <tr><td>User (role, plan, status, deletadoEm)</td><td>Existe</td><td>Soft-delete + anonimização</td></tr>
-          <tr><td>Video (youtube | upload, requiredPlan, published)</td><td>Existe</td><td>Mesma tabela para biblioteca e vitrine — daí o furo do PATCH</td></tr>
-          <tr><td>Subscription + PlanPayment + PlanChangeRequest</td><td>Existe</td><td>PIX + aprovação; PlanPayment ON DELETE RESTRICT no MySQL live</td></tr>
+          <tr><td>User (role, plan, status, deletadoEm)</td><td>Existe</td><td>Soft-delete + anonimização; sem atualizadoPorId</td></tr>
+          <tr><td>Video (youtube | upload | article)</td><td>Existe</td><td>Mesma tabela para biblioteca, vitrine e aula — daí o furo do PATCH</td></tr>
+          <tr><td>Subscription + PlanPayment + PlanChangeRequest</td><td>Existe</td><td>PIX + aprovação; PlanPayment ON DELETE RESTRICT</td></tr>
           <tr><td>Favorite / WatchProgress</td><td>Existe</td><td>Por (usuário, vídeo)</td></tr>
-          <tr><td>VideoAccessGrant</td><td>Existe</td><td>Libera pessoa específica; hoje o dono gerencia</td></tr>
-          <tr><td>ConsentimentoLgpd</td><td>Parcial</td><td>Tabela existe; engine MyISAM, FK ausente no banco live</td></tr>
-          <tr><td>Course / Lesson / Module</td><td>Não existe</td><td>Não inventar até pedir trilha didática</td></tr>
+          <tr><td>VideoAccessGrant</td><td>Existe</td><td>Libera pessoa específica</td></tr>
+          <tr><td>ConsentimentoLgpd</td><td>Parcial</td><td>Schema tem FK; live pode estar MyISAM</td></tr>
+          <tr><td>Course / CourseModule / CourseLesson</td><td>Existe</td><td>Não existia em 15 set; hard delete do curso; sem criadoPorId</td></tr>
           <tr><td>Seller / payout / split</td><td>Não existe</td><td>Uma chave PIX só</td></tr>
-          <tr><td>Stripe / Mercado Pago</td><td>Não existe</td><td>Enum card/boleto sem implementação de gateway</td></tr>
+          <tr><td>Stripe / Mercado Pago</td><td>Não existe</td><td>Enum card/boleto sem gateway</td></tr>
         </tbody>
       </table>
-      <p>Risco futuro: <code>User.plan</code> convive com <code>Subscription.status</code>. O stream já chama <code>syncSubscriptionStatus</code> antes de ler o plano. Qualquer tela nova de paywall precisa passar por aí — não ler <code>user.plan</code> cru.</p>
+      <p>Risco futuro: <code>User.plan</code> convive com <code>Subscription.status</code>. O stream já chama <code>syncSubscriptionStatus</code> antes de ler o plano.</p>
     </section>
 
     <section>
       <h2>7. Plano de implementação por etapas</h2>
-      <h3>1. Fechar a vitrine (lacuna de produto, se você confirmar)</h3>
-      <p>Objetivo: só admin cria, publica, despublica, concede grants e apaga no catálogo. Arquivos: <code>app/api/catalog/[id]/route.ts</code>, <code>app/api/catalog/[id]/grants/route.ts</code>, <code>app/catalogo/page.tsx</code>. Sem migration. Risco: o usuário 3 deixa de gerenciar o vídeo 22 pela UI; o arquivo continua até o admin decidir. Aceite: conta <code>user</code> recebe 403 em PATCH/DELETE/grants; admin segue em <code>/admin/videos</code> e no botão Publicar. Testes: <code>app/api/catalog/[id]/route.test.ts</code> e grants. Rollback: git.</p>
-      <h3>2. Integridade LGPD no banco (lacuna comprovada)</h3>
-      <p>Objetivo: <code>ConsentimentoLgpd</code> InnoDB + FK. Arquivo: nova migration no padrão de <code>20260917100000_rate_limit_innodb</code>. Sem dependência nova. Aceite: <code>ENGINE=InnoDB</code> e <code>ConsentimentoLgpd_userId_fkey</code> no information_schema. Rollback: revert da migration.</p>
-      <h3>3. Operar o que já existe (não construir)</h3>
-      <p>FFmpeg no PATH (ou FFMPEG_PATH), CRON_SECRET, tarefa Windows, chave PIX real. Sem isso a aula fica em <code>processing</code> e o lembrete de vencimento não sai. Não é código novo.</p>
-      <h3>4. Cursos / gateway / CDN</h3>
-      <p>Só depois de uma trilha didática clara, volume de PIX que doa, ou player saturando o Node. Cada um é construir do zero, não fechar lacuna.</p>
+      <h3>1. Fechar a vitrine (lacuna de produto)</h3>
+      <p>Objetivo: só admin publica, despublica, concede grants e apaga no catálogo. Arquivos: <code>app/api/catalog/[id]/route.ts</code>, grants, <code>app/catalogo/page.tsx</code>. Sem migration. Aceite: conta <code>user</code> recebe 403; admin segue. Testes nas rotas. Rollback: git.</p>
+      <h3>2. Integridade LGPD no banco</h3>
+      <p>Objetivo: <code>ConsentimentoLgpd</code> InnoDB + FK se o live ainda estiver MyISAM. Padrão de <code>20260917100000_rate_limit_innodb</code>.</p>
+      <h3>3. Operar o que já existe</h3>
+      <p>FFmpeg, CRON_SECRET, tarefa Windows, chave PIX real. Não é código novo.</p>
+      <h3>4. Adiar gateway / CDN</h3>
+      <p>Course já foi construído. Stripe, HLS e CDN pública continuam fora até volume real.</p>
+      <h3>5. Segredos, health e busca</h3>
+      <p>Parar de versionar <code>.env.production</code>, enxugar <code>/api/health</code>, <code>requireAdmin</code> em <code>/api/users/search</code>, não devolver <code>code</code> Prisma no signup.</p>
+      <h3>6. UX pontual</h3>
+      <p>ConfirmDialog em remover módulo/aula. Miniatura publicada permanece preview da vitrine (mesmo gate não é necessário no JPEG).</p>
     </section>
 
     <section>
@@ -281,16 +298,12 @@
         </thead>
         <tbody>
           <tr>
-            <td>A vitrine é só suas aulas, ou qualquer assinante também publica?</td>
-            <td>README e POST já assumem o primeiro. PATCH/UI ainda assumem o segundo. Travar em admin é linha de produto. O vídeo 22 (user 3) precisa de destino: despublicar, transferir, ou manter.</td>
+            <td>Algum valor real de NEXTAUTH_SECRET / DATABASE_URL / CRON_SECRET / RESEND_API_KEY já entrou no histórico do .env.production?</td>
+            <td>Se sim, rotacionar depois de tirar o arquivo do git. Esta auditoria não abriu o arquivo.</td>
           </tr>
           <tr>
-            <td>Precisa de curso com módulos, ou uma lista de vídeos com plano basta?</td>
-            <td>Course/Lesson não existe. Lista ordenada é barata; currículo é outro sistema.</td>
-          </tr>
-          <tr>
-            <td>PIX conferido na mão está ok para as primeiras vendas?</td>
-            <td>Gateway agora seria troca de produto, não evolução do fluxo que já cobra.</td>
+            <td>PIX conferido na mão continua ok para as primeiras vendas?</td>
+            <td>Gateway agora seria troca de produto. Assumido sim até alguém pedir o contrário.</td>
           </tr>
         </tbody>
       </table>
@@ -299,41 +312,47 @@
     <section>
       <h2>9. Primeiras alterações recomendadas</h2>
       <ol>
-        <li>Confirmar se o catálogo fica só do admin — isso decide a etapa 1 e o vídeo 22.</li>
-        <li>Se sim: exigir admin em PATCH/DELETE/grants de <code>/api/catalog/[id]</code>; esconder Publicar/Despublicar/grants/excluir para não-admin na UI.</li>
-        <li>Migration ConsentimentoLgpd → InnoDB + FK (mesmo padrão do RateLimitBucket).</li>
-        <li>Usar <code>/admin/videos</code> como caminho oficial das aulas (não consome cota da biblioteca).</li>
-        <li>Não mexer em Prisma 6, NextAuth v5, Stripe nem Course até as dúvidas da seção 8.</li>
+        <li>Confirmar a vitrine só do admin (README + plano de 18 set).</li>
+        <li>Exigir admin em PATCH/DELETE/grants de <code>/api/catalog/[id]</code> e esconder ações na UI.</li>
+        <li>Migration ConsentimentoLgpd InnoDB + FK se o live ainda estiver MyISAM.</li>
+        <li>Usar <code>/admin/videos</code> como caminho oficial das aulas.</li>
+        <li>Não mexer em Prisma 6, NextAuth v5, Stripe nem HLS.</li>
+        <li>Tirar <code>.env.production</code> do git e a exceção do gitignore.</li>
+        <li>Enxugar <code>GET /api/health</code>.</li>
+        <li>Exigir admin em <code>/api/users/search</code>.</li>
+        <li>Não devolver código Prisma no signup.</li>
+        <li>ConfirmDialog ao remover módulo ou aula.</li>
+        <li>Manter thumb publicada como preview da vitrine.</li>
       </ol>
     </section>
 
     <section class="approval">
       <h2>Aprovação</h2>
-      <p>Nada foi implementado nesta etapa. Diga se a vitrine é só sua e se PIX manual basta — a partir daí dá para executar a etapa 1. O vídeo 22 (upload publicado do user 3) precisa de uma decisão explícita.</p>
+      <p>Relatório reescrito em 18 set 2026. O plano de correção (segurança, vitrine, banco, UX) foi aprovado para execução nesta sessão. Cursos já existem — não reabrir “construir Course”. PIX manual e stack pinada permanecem.</p>
     </section>
   </div>
 
   <script type="application/json" id="audit-tracker">
 {
   "project": "Flix",
-  "auditedAt": "15 set 2026",
-  "progressUpdatedAt": "15 set 2026",
+  "auditedAt": "18 set 2026",
+  "progressUpdatedAt": "18 set 2026",
   "items": [
     {
       "id": "etapa-1-vitrine-admin",
       "title": "Fechar a vitrine: só admin publica, despublica, concede grants e apaga no catálogo",
       "origin": "secao-7",
-      "status": "pendente",
-      "evidence": "",
-      "updatedAt": null
+      "status": "feito",
+      "evidence": "app/api/catalog/[id]/route.ts e grants usam requireAdmin + logAdminAction; catalogo/page.tsx ações só com isAdmin. Testes 403 em route.test.ts.",
+      "updatedAt": "18 set 2026"
     },
     {
       "id": "etapa-2-lgpd-innodb",
       "title": "Migration ConsentimentoLgpd para InnoDB + FK no banco live",
       "origin": "secao-7",
-      "status": "pendente",
-      "evidence": "",
-      "updatedAt": null
+      "status": "feito",
+      "evidence": "prisma/migrations/20260918163000_consentimento_lgpd_innodb. information_schema: ENGINE=InnoDB, ConsentimentoLgpd_userId_fkey, 0 órfãos.",
+      "updatedAt": "18 set 2026"
     },
     {
       "id": "etapa-3-operar-ffmpeg-cron",
@@ -345,51 +364,115 @@
     },
     {
       "id": "etapa-4-adiar-curso-gateway",
-      "title": "Adiar Course/Stripe/CDN até trilha didática, volume de PIX ou saturação do player",
+      "title": "Adiar Stripe, Mercado Pago, HLS e CDN até volume real",
       "origin": "secao-7",
       "status": "pendente",
       "evidence": "",
       "updatedAt": null
     },
     {
+      "id": "etapa-5-segredos-saude-busca",
+      "title": "Parar de versionar .env.production, enxugar /api/health, exigir admin na busca de usuários e no signup sem code Prisma",
+      "origin": "secao-7",
+      "status": "feito",
+      "evidence": ".gitignore sem !.env.production; git rm --cached; health só status/database; users/search requireAdmin; setup 500 sem code.",
+      "updatedAt": "18 set 2026"
+    },
+    {
+      "id": "etapa-6-ux-confirm-thumb",
+      "title": "ConfirmDialog em módulo/aula; miniatura publicada permanece preview da vitrine",
+      "origin": "secao-7",
+      "status": "feito",
+      "evidence": "ModuleCard.tsx ConfirmDialog; thumbnail/route.ts comentário + testes de visitante em thumb publicada.",
+      "updatedAt": "18 set 2026"
+    },
+    {
       "id": "rec-1-confirmar-vitrine",
       "title": "Confirmar se o catálogo fica só do admin e o que fazer com o vídeo 22",
       "origin": "secao-9",
-      "status": "pendente",
-      "evidence": "",
-      "updatedAt": null
+      "status": "feito",
+      "evidence": "README + plano 18 set 2026: assinante não publica. Vitrine só do criador.",
+      "updatedAt": "18 set 2026"
     },
     {
       "id": "rec-2-admin-patch-catalog",
       "title": "Exigir admin em PATCH/DELETE/grants de /api/catalog/[id] e esconder ações na UI",
       "origin": "secao-9",
-      "status": "pendente",
-      "evidence": "",
-      "updatedAt": null
+      "status": "feito",
+      "evidence": "requireAdmin em catalog/[id]/route.ts e grants/route.ts; isAdmin em catalogo/page.tsx.",
+      "updatedAt": "18 set 2026"
     },
     {
       "id": "rec-3-lgpd-migration",
       "title": "Criar migration ConsentimentoLgpd InnoDB + FK (padrão RateLimitBucket)",
       "origin": "secao-9",
-      "status": "pendente",
-      "evidence": "",
-      "updatedAt": null
+      "status": "feito",
+      "evidence": "20260918163000_consentimento_lgpd_innodb aplicada no MySQL live (flix@localhost).",
+      "updatedAt": "18 set 2026"
     },
     {
       "id": "rec-4-admin-videos-oficial",
       "title": "Usar /admin/videos como caminho oficial das aulas autorais",
       "origin": "secao-9",
+      "status": "feito",
+      "evidence": "app/admin/videos/page.tsx — caminho oficial já em uso; POST /api/catalog exige requireAdmin.",
+      "updatedAt": "18 set 2026"
+    },
+    {
+      "id": "rec-5-nao-mexer-stack-gateway",
+      "title": "Não mexer em Prisma 6, NextAuth v5, Stripe nem HLS",
+      "origin": "secao-9",
       "status": "pendente",
       "evidence": "",
       "updatedAt": null
     },
     {
-      "id": "rec-5-nao-mexer-stack-gateway",
-      "title": "Não mexer em Prisma 6, NextAuth v5, Stripe nem Course até as dúvidas da seção 8",
+      "id": "rec-6-env-production",
+      "title": "Tirar .env.production do git e a exceção do gitignore",
       "origin": "secao-9",
-      "status": "pendente",
-      "evidence": "",
-      "updatedAt": null
+      "status": "feito",
+      "evidence": ".gitignore cobre .env*; git rm --cached .env.production. Rotacionar segredos se já vazaram no histórico.",
+      "updatedAt": "18 set 2026"
+    },
+    {
+      "id": "rec-7-health",
+      "title": "Enxugar GET /api/health (sem dbHost, probes nem migrate)",
+      "origin": "secao-9",
+      "status": "feito",
+      "evidence": "app/api/health/route.ts responde status, timestamp, database.",
+      "updatedAt": "18 set 2026"
+    },
+    {
+      "id": "rec-8-user-search-admin",
+      "title": "Exigir admin em GET /api/users/search",
+      "origin": "secao-9",
+      "status": "feito",
+      "evidence": "app/api/users/search/route.ts requireAdmin; teste 403 para não-admin.",
+      "updatedAt": "18 set 2026"
+    },
+    {
+      "id": "rec-9-signup-sem-code",
+      "title": "Não devolver código Prisma no JSON de signup 500",
+      "origin": "secao-9",
+      "status": "feito",
+      "evidence": "app/api/auth/setup/route.ts:78 — JSON só com error; code só no log.",
+      "updatedAt": "18 set 2026"
+    },
+    {
+      "id": "rec-10-confirm-modulo-aula",
+      "title": "ConfirmDialog ao remover módulo ou aula no editor de curso",
+      "origin": "secao-9",
+      "status": "feito",
+      "evidence": "app/components/admin/courses/ModuleCard.tsx ConfirmDialog.",
+      "updatedAt": "18 set 2026"
+    },
+    {
+      "id": "rec-11-thumb-preview-vitrine",
+      "title": "Manter thumb publicada como preview da vitrine (não o mesmo gate do stream)",
+      "origin": "secao-9",
+      "status": "feito",
+      "evidence": "thumbnail/route.ts: visitante vê published; stream permanece paywalled.",
+      "updatedAt": "18 set 2026"
     }
   ]
 }

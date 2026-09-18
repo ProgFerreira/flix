@@ -19,6 +19,10 @@ describe("GET /api/health", () => {
     const json = await res.json()
     expect(json.status).toBe("ok")
     expect(json.database).toBe("ok")
+    expect(json).not.toHaveProperty("dbHost")
+    expect(json).not.toHaveProperty("probes")
+    expect(json).not.toHaveProperty("migrate")
+    expect(json).not.toHaveProperty("hasDatabaseUrl")
   })
 
   it("returns 503 when the database is down", async () => {
@@ -29,6 +33,8 @@ describe("GET /api/health", () => {
     const json = await res.json()
     expect(json.status).toBe("degraded")
     expect(json.database).toBe("error")
-    expect(json.hasDatabaseUrl).toEqual(expect.any(Boolean))
+    expect(json).not.toHaveProperty("dbHost")
+    expect(json).not.toHaveProperty("dbCode")
+    expect(json).not.toHaveProperty("probes")
   })
 })

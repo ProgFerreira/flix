@@ -9,6 +9,7 @@ class QuotaExceededError extends Error {
 }
 
 const optionalUserId = vi.fn()
+const optionalCatalogRequester = vi.fn()
 const requireUserId = vi.fn()
 const requireAdmin = vi.fn()
 const logAdminAction = vi.fn()
@@ -40,6 +41,10 @@ vi.mock("@/lib/session", async (importOriginal) => {
     canAccessCatalogVideo: (...args: unknown[]) => canAccessCatalogVideo(...args),
   }
 })
+
+vi.mock("@/lib/catalog-requester", () => ({
+  optionalCatalogRequester: (...args: unknown[]) => optionalCatalogRequester(...args),
+}))
 
 vi.mock("@/lib/audit", () => ({
   logAdminAction: (...args: unknown[]) => logAdminAction(...args),
@@ -77,6 +82,8 @@ vi.mock("@/lib/prisma", () => ({ prisma }))
 describe("GET /api/catalog", () => {
   beforeEach(() => {
     optionalUserId.mockReset()
+    optionalCatalogRequester.mockReset()
+    optionalCatalogRequester.mockResolvedValue(null)
     syncSubscriptionStatus.mockReset()
     canAccessCatalogVideo.mockReset()
     grantedVideoIdsForUser.mockReset()
@@ -89,10 +96,22 @@ describe("GET /api/catalog", () => {
     prisma.courseLesson.findMany.mockResolvedValue([])
   })
 
+  it("looks up course-lesson video ids without waiting for the session user", async () => {
+    let release: (value: null) => void = () => undefined
+    optionalCatalogRequester.mockImplementation(() => new Promise((resolve) => {
+      release = resolve
+    }))
+    prisma.video.count.mockResolvedValue(0)
+    prisma.video.findMany.mockResolvedValue([])
+    const { GET } = await import("@/app/api/catalog/route")
+    const resultPromise = GET(new NextRequest("http://localhost/api/catalog"))
+    await vi.waitFor(() => expect(prisma.courseLesson.findMany).toHaveBeenCalled())
+    release(null)
+    await expect(resultPromise).resolves.toMatchObject({ status: 200 })
+  })
+
   it("limits the default catalog to videos covered by the viewer plan", async () => {
-    optionalUserId.mockResolvedValue(9)
-    syncSubscriptionStatus.mockResolvedValue(null)
-    prisma.user.findUnique.mockResolvedValue({ plan: "free", role: "user" })
+    optionalCatalogRequester.mockResolvedValue({ userId: 9, plan: "free", role: "user" })
     canAccessCatalogVideo.mockReturnValue(true)
     prisma.video.count.mockResolvedValue(0)
     prisma.video.findMany.mockResolvedValue([])
@@ -111,9 +130,7 @@ describe("GET /api/catalog", () => {
   })
 
   it("keeps a plan chip listing videos of that plan even when locked", async () => {
-    optionalUserId.mockResolvedValue(9)
-    syncSubscriptionStatus.mockResolvedValue(null)
-    prisma.user.findUnique.mockResolvedValue({ plan: "free", role: "user" })
+    optionalCatalogRequester.mockResolvedValue({ userId: 9, plan: "free", role: "user" })
     canAccessCatalogVideo.mockReturnValue(false)
     prisma.video.count.mockResolvedValue(0)
     prisma.video.findMany.mockResolvedValue([])
@@ -189,9 +206,7 @@ describe("GET /api/catalog", () => {
   })
 
   it("scopes mine=1 to the owner and attaches favorite/progress", async () => {
-    optionalUserId.mockResolvedValue(7)
-    syncSubscriptionStatus.mockResolvedValue(null)
-    prisma.user.findUnique.mockResolvedValue({ plan: "premium", role: "user" })
+    optionalCatalogRequester.mockResolvedValue({ userId: 7, plan: "premium", role: "user" })
     canAccessCatalogVideo.mockReturnValue(true)
     prisma.video.count.mockResolvedValue(1)
     prisma.video.findMany.mockResolvedValue([{

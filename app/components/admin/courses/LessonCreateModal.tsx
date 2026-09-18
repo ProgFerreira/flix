@@ -1,15 +1,18 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { FileText, Link2, Search, Upload } from "lucide-react"
+import { FileText, ImagePlus, Link2, Search, Upload } from "lucide-react"
 import { Modal } from "@/app/components/Modal"
 import { VideoThumb } from "@/app/components/VideoThumb"
 import { apiErrorMessage, apiRequest } from "@/lib/api-client"
+import { hasCustomThumb } from "@/lib/course"
 import { extractYouTubeId, getYouTubeThumbnail } from "@/lib/utils"
 import { courseLessonArticleSchema, courseLessonYoutubeSchema } from "@/validators/course"
 import type { LessonDraft, PickerVideo } from "@/app/components/admin/courses/types"
+
+const LESSON_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 
 type Kind = "upload" | "youtube" | "article" | "library"
 type Plan = "free" | "premium" | "pro"
@@ -64,6 +67,15 @@ function toDraft(video: CreatedLesson): LessonDraft {
   }
 }
 
+async function uploadLessonImage(videoId: number, file: File) {
+  const formData = new FormData()
+  formData.append("file", file)
+  return apiRequest<CreatedLesson>(`/api/admin/videos/${videoId}/image`, {
+    method: "POST",
+    body: formData,
+  })
+}
+
 function uploadLesson(formData: FormData, onProgress: (pct: number) => void): Promise<CreatedLesson> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -107,7 +119,22 @@ export function LessonCreateModal({
   const [fileOver, setFileOver] = useState(false)
   const [uploadTitle, setUploadTitle] = useState("")
   const [urlPreview, setUrlPreview] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageOver, setImageOver] = useState(false)
+  const [removeImage, setRemoveImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null)
+      return
+    }
+    const url = URL.createObjectURL(imageFile)
+    setImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imageFile])
 
   const youtubeForm = useForm<YoutubeForm>({
     resolver: zodResolver(courseLessonYoutubeSchema),
@@ -133,6 +160,28 @@ export function LessonCreateModal({
     setError("")
     setFile(picked)
     if (!uploadTitle.trim()) setUploadTitle(picked.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "))
+  }
+
+  const acceptImage = (picked: File | null) => {
+    if (!picked) return
+    const okType = /image\/(jpeg|png|webp)/.test(picked.type) || /\.(jpe?g|png|webp)$/i.test(picked.name)
+    if (!okType) {
+      setError("Envie uma imagem JPEG, PNG ou WebP")
+      return
+    }
+    if (picked.size > LESSON_IMAGE_MAX_BYTES) {
+      setError("A imagem deve ter até 5 MB.")
+      return
+    }
+    setError("")
+    setRemoveImage(false)
+    setImageFile(picked)
+  }
+
+  const clearImage = () => {
+    setImageFile(null)
+    setRemoveImage(true)
+    if (imageInputRef.current) imageInputRef.current.value = ""
   }
 
   const onYoutubeUrl = async (raw: string) => {
@@ -202,17 +251,35 @@ export function LessonCreateModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: values.title, notes: values.body }),
         })
+        let thumbnail = updated.thumbnail ?? editing.thumbnail
+        if (imageFile) {
+          const withImage = await uploadLessonImage(editing.videoId, imageFile)
+          thumbnail = withImage.thumbnail
+        } else if (removeImage && hasCustomThumb(editing.thumbnail)) {
+          const cleared = await apiRequest<CreatedLesson>(`/api/admin/videos/${editing.videoId}/image`, {
+            method: "DELETE",
+          })
+          thumbnail = cleared.thumbnail
+        }
         onEdited({
           ...editing,
           title: updated.title,
           notes: updated.notes ?? values.body,
+          thumbnail,
         })
       } else {
-        const video = await apiRequest<CreatedLesson>("/api/admin/courses/lessons", {
+        let video = await apiRequest<CreatedLesson>("/api/admin/courses/lessons", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...values, requiredPlan }),
         })
+        if (imageFile) {
+          try {
+            video = await uploadLessonImage(video.id, imageFile)
+          } catch {
+            // aula já existe; entra no módulo sem a foto pra poder editar depois
+          }
+        }
         onCreated(toDraft(video))
       }
     } catch (err) {
@@ -223,8 +290,10 @@ export function LessonCreateModal({
   })
 
   const description = isEdit
-    ? "Atualize o título e o material escrito desta aula."
+    ? "Atualize o título, o material escrito e a imagem desta aula."
     : "Crie a aula agora: envie um arquivo, cole uma URL do YouTube ou escreva o material."
+  const shownArticleThumb = imagePreview
+    ?? (!removeImage && hasCustomThumb(editing?.thumbnail) ? editing?.thumbnail ?? null : null)
 
   return (
     <Modal open title={isEdit ? `Editar aula — ${moduleTitle}` : `Adicionar aula — ${moduleTitle}`} description={description} busy={busy} onClose={onClose}>
@@ -373,6 +442,67 @@ export function LessonCreateModal({
             {articleForm.formState.errors.body && (
               <p id="lesson-article-body-error" className="field-error" role="alert">{articleForm.formState.errors.body.message}</p>
             )}
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="lesson-article-image">Imagem da aula</label>
+            <p className="muted-2">Opcional. JPEG, PNG ou WebP até 5 MB.</p>
+            <div className="stack-gap">
+            <input
+              id="lesson-article-image"
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              disabled={busy}
+              className="hidden-input"
+              onChange={(e) => acceptImage(e.target.files?.[0] ?? null)}
+            />
+            {shownArticleThumb && (
+              <div className="preview-thumb">
+                {shownArticleThumb.startsWith("blob:") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={shownArticleThumb} alt="" />
+                ) : (
+                  <VideoThumb src={shownArticleThumb} alt="" sizes="440px" />
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              className={`file-drop${imageOver ? " is-over" : ""}${imageFile || shownArticleThumb ? " is-on" : ""}`}
+              disabled={busy}
+              onClick={() => imageInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setImageOver(true) }}
+              onDragLeave={() => setImageOver(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setImageOver(false)
+                acceptImage(e.dataTransfer.files[0] ?? null)
+              }}
+            >
+              <ImagePlus size={22} />
+              {imageFile ? (
+                <>
+                  <span className="file-drop-name">{imageFile.name}</span>
+                  <span className="file-drop-hint">{(imageFile.size / 1024 / 1024).toFixed(1)} MB · clique para trocar</span>
+                </>
+              ) : shownArticleThumb ? (
+                <>
+                  <span className="file-drop-name">Clique para trocar a imagem</span>
+                  <span className="file-drop-hint">ou arraste um JPEG, PNG ou WebP</span>
+                </>
+              ) : (
+                <>
+                  <span className="file-drop-name">Clique para selecionar uma imagem</span>
+                  <span className="file-drop-hint">ou arraste um JPEG, PNG ou WebP</span>
+                </>
+              )}
+            </button>
+            {Boolean(imageFile || shownArticleThumb) && (
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={clearImage}>
+                Remover imagem
+              </button>
+            )}
+            </div>
           </div>
           {error && <p className="field-error" role="alert">{error}</p>}
           <button type="submit" className="btn btn-primary btn-block" disabled={busy}>

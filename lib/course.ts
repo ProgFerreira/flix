@@ -12,6 +12,11 @@ export function isArticleSource(source: string | null | undefined): source is "a
   return source === "article"
 }
 
+export function hasCustomThumb(src: string | null | undefined): boolean {
+  const value = src?.trim()
+  return Boolean(value) && value !== "/video-placeholder.svg"
+}
+
 /** Vídeos que já estão numa trilha publicada somem da grade de avulsas. */
 export const inPublishedCourseWhere = {
   courseLesson: {
@@ -142,4 +147,111 @@ export function parseLearnings(raw: string | null | undefined): string[] {
     .filter(Boolean)
     .slice(0, 30)
     .map((line) => line.slice(0, 200))
+}
+
+export const COURSE_PLAN_LABEL: Record<string, string> = {
+  free: "Free",
+  premium: "Premium",
+  pro: "Pro",
+}
+
+/** Duração amigável pra chips da landing — sem puxar ffmpeg no client. */
+export function formatCourseDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return ""
+  if (seconds < 60) return "< 1 min"
+  const minutes = Math.round(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (hours > 0 && rest > 0) return `${hours}h ${rest}min`
+  if (hours > 0) return `${hours}h`
+  return `${minutes} min`
+}
+
+export function sumLessonDurations(lessons: { duration: string | null }[]): number {
+  return lessons.reduce((total, lesson) => total + durationToSeconds(lesson.duration), 0)
+}
+
+export function courseLandingChips(input: {
+  lessonCount: number
+  moduleCount: number
+  totalSeconds: number
+}): string[] {
+  const chips: string[] = []
+  if (input.lessonCount > 0) {
+    chips.push(`${input.lessonCount} ${input.lessonCount === 1 ? "aula" : "aulas"}`)
+  }
+  if (input.moduleCount > 0) {
+    chips.push(`${input.moduleCount} ${input.moduleCount === 1 ? "módulo" : "módulos"}`)
+  }
+  const duration = formatCourseDuration(input.totalSeconds)
+  if (duration) chips.push(duration)
+  return chips
+}
+
+export function moduleCurriculumMeta(lessons: { duration: string | null }[]): string {
+  const count = lessons.length
+  const aulas = `${count} ${count === 1 ? "aula" : "aulas"}`
+  const duration = formatCourseDuration(sumLessonDurations(lessons))
+  return duration ? `${aulas} · ${duration}` : aulas
+}
+
+export function lessonKindLabel(source: string | null | undefined): string {
+  return isArticleSource(source) ? "Artigo" : "Vídeo"
+}
+
+export type CourseLandingPreviewField = "thumbnail" | "description" | "learnings"
+
+export function courseLandingPreviewHints(course: {
+  thumbnail: string
+  description: string | null
+  learnings?: string[]
+}): { field: CourseLandingPreviewField; message: string }[] {
+  const hints: { field: CourseLandingPreviewField; message: string }[] = []
+  if (!hasCustomThumb(course.thumbnail)) {
+    hints.push({ field: "thumbnail", message: "Envie uma capa no editor para esta seção aparecer." })
+  }
+  if (!course.description?.trim()) {
+    hints.push({ field: "description", message: "Preencha a descrição no editor para esta seção aparecer." })
+  }
+  if (!course.learnings?.length) {
+    hints.push({ field: "learnings", message: "Preencha o que o aluno vai aprender no editor para esta seção aparecer." })
+  }
+  return hints
+}
+
+export type CourseLandingCta = {
+  kind: "upgrade" | "start" | "empty"
+  label: string
+}
+
+export function courseLandingCta(input: {
+  locked: boolean
+  isLoggedIn: boolean
+  requiredPlan: string
+  hasProgress: boolean
+  hasPlayableLesson: boolean
+}): CourseLandingCta {
+  if (input.locked) {
+    return {
+      kind: "upgrade",
+      label: input.isLoggedIn
+        ? `Assinar ${COURSE_PLAN_LABEL[input.requiredPlan] ?? input.requiredPlan}`
+        : "Entrar pra assinar",
+    }
+  }
+  if (!input.hasPlayableLesson) {
+    return { kind: "empty", label: "Este curso ainda não tem aulas" }
+  }
+  return { kind: "start", label: input.hasProgress ? "Continuar" : "Iniciar curso" }
+}
+
+export function courseLandingLessonState(lesson: {
+  locked: boolean
+  status: string
+  progressSeconds: number
+  duration: string | null
+}): "locked" | "done" | "playable" {
+  if (lesson.locked || lesson.status === "processing" || lesson.status === "error") return "locked"
+  if (isLessonComplete(lesson.progressSeconds, lesson.duration)) return "done"
+  return "playable"
 }

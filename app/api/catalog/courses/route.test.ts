@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest } from "next/server"
 
 const optionalUserId = vi.fn()
+const optionalCatalogRequester = vi.fn()
 const syncSubscriptionStatus = vi.fn()
 const canAccessCatalogVideo = vi.fn()
 const grantedVideoIdsForUser = vi.fn()
@@ -21,6 +22,9 @@ vi.mock("@/lib/session", async (importOriginal) => {
     canAccessCatalogVideo: (...args: unknown[]) => canAccessCatalogVideo(...args),
   }
 })
+vi.mock("@/lib/catalog-requester", () => ({
+  optionalCatalogRequester: (...args: unknown[]) => optionalCatalogRequester(...args),
+}))
 vi.mock("@/lib/video-grants", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/video-grants")>()
   return {
@@ -54,6 +58,8 @@ const freeLesson = {
 describe("GET /api/catalog/courses", () => {
   beforeEach(() => {
     optionalUserId.mockReset()
+    optionalCatalogRequester.mockReset()
+    optionalCatalogRequester.mockResolvedValue(null)
     prisma.course.count.mockReset()
     prisma.course.findMany.mockReset()
     prisma.watchProgress.findMany.mockReset()
@@ -100,6 +106,8 @@ describe("GET /api/catalog/courses", () => {
 describe("GET /api/catalog/courses/[slug]", () => {
   beforeEach(() => {
     optionalUserId.mockReset()
+    optionalCatalogRequester.mockReset()
+    optionalCatalogRequester.mockResolvedValue(null)
     prisma.course.findUnique.mockReset()
     prisma.user.findUnique.mockReset()
     canAccessCatalogVideo.mockReset()

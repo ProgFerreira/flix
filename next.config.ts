@@ -36,6 +36,9 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
   // instrumentation.ts chama o CLI do pacote "prisma" via child_process pra
   // rodar as migrations no boot, mas só referencia o caminho como string
   // (não faz import/require estático). Sem essa dica, o file tracing da

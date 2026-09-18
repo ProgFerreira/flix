@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { NextRequest, NextResponse } from "next/server"
 
-const requireUserId = vi.fn()
+const requireAdmin = vi.fn()
 const prisma = {
   user: { findMany: vi.fn() },
 }
 
 vi.mock("@/lib/session", () => ({
-  requireUserId: (...args: unknown[]) => requireUserId(...args),
+  requireAdmin: (...args: unknown[]) => requireAdmin(...args),
 }))
 vi.mock("@/lib/prisma", () => ({ prisma }))
 vi.mock("@/lib/rate-limit", () => ({
@@ -17,19 +17,27 @@ vi.mock("@/lib/rate-limit", () => ({
 
 describe("GET /api/users/search", () => {
   beforeEach(() => {
-    requireUserId.mockReset()
+    requireAdmin.mockReset()
     prisma.user.findMany.mockReset()
   })
 
   it("returns 401 without a session", async () => {
-    requireUserId.mockResolvedValue(NextResponse.json({ error: "Não autenticado" }, { status: 401 }))
+    requireAdmin.mockResolvedValue(NextResponse.json({ error: "Não autenticado" }, { status: 401 }))
     const { GET } = await import("@/app/api/users/search/route")
     const res = await GET(new NextRequest("http://localhost/api/users/search?q=an"))
     expect(res.status).toBe(401)
   })
 
+  it("returns 403 for a non-admin", async () => {
+    requireAdmin.mockResolvedValue(NextResponse.json({ error: "Acesso negado" }, { status: 403 }))
+    const { GET } = await import("@/app/api/users/search/route")
+    const res = await GET(new NextRequest("http://localhost/api/users/search?q=ana"))
+    expect(res.status).toBe(403)
+    expect(prisma.user.findMany).not.toHaveBeenCalled()
+  })
+
   it("returns an empty list when the query is too short", async () => {
-    requireUserId.mockResolvedValue({ userId: 1 })
+    requireAdmin.mockResolvedValue({ userId: 1 })
     const { GET } = await import("@/app/api/users/search/route")
     const res = await GET(new NextRequest("http://localhost/api/users/search?q=a"))
     expect(res.status).toBe(200)
@@ -38,7 +46,7 @@ describe("GET /api/users/search", () => {
   })
 
   it("searches active users excluding the requester", async () => {
-    requireUserId.mockResolvedValue({ userId: 1 })
+    requireAdmin.mockResolvedValue({ userId: 1 })
     prisma.user.findMany.mockResolvedValue([{ id: 2, name: "Ana", email: "ana@x.com", plan: "free" }])
     const { GET } = await import("@/app/api/users/search/route")
     const res = await GET(new NextRequest("http://localhost/api/users/search?q=ana"))

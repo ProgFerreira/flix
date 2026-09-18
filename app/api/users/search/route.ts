@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireUserId } from "@/lib/session"
+import { requireAdmin } from "@/lib/session"
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit"
 
 const SEARCH_LIMIT = 40
 const SEARCH_WINDOW_MS = 60 * 1000
 
 export async function GET(req: NextRequest) {
-  const auth = await requireUserId()
+  const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
 
   const ip = getClientIp(req.headers)
