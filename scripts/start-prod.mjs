@@ -2,13 +2,17 @@ import { spawn } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { missingRequiredProdEnv } from "./required-prod-env.mjs"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 process.env.NODE_ENV = process.env.NODE_ENV || "production"
 
 function loadEnv(file) {
   const full = path.join(root, file)
-  if (!existsSync(full)) return
+  if (!existsSync(full)) {
+    console.warn(`[env] ${file} não encontrado`)
+    return
+  }
   for (const line of readFileSync(full, "utf8").split(/\r?\n/)) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith("#")) continue
@@ -24,10 +28,18 @@ function loadEnv(file) {
     }
     if (process.env[key] === undefined) process.env[key] = value
   }
+  console.info(`[env] carregou ${file}`)
 }
 
 loadEnv(".env.production")
 loadEnv(".env")
+
+const missingEnv = missingRequiredProdEnv(process.env)
+if (missingEnv.length) {
+  console.error(`[env] variáveis obrigatórias ausentes: ${missingEnv.join(", ")}`)
+  console.error("[env] No hPanel: Node.js → Environment variables. Sem NEXTAUTH_SECRET o NextAuth responde Configuration error.")
+  process.exit(1)
+}
 
 function runFile(cmd, args) {
   return new Promise((resolve, reject) => {
